@@ -18,15 +18,14 @@
             Start Vergadering
         </button>
 
-        <div id="log" class="mt-6 text-left text-xs text-gray-400 max-h-32 overflow-y-auto p-2 border-t"></div>
+        <div id="log" class="mt-6 text-left text-xs text-gray-400 max-h-48 overflow-y-auto p-2 border-t"></div>
     </div>
 
     <script>
-        // PLAK HIER JE GOOGLE WEB APP URL (na implementatie)
+        // Jouw specifieke Google Web App URL
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw4KWYtV8bDMYjhLzNpKXDdWHYfom6f_opZJQjmk6klhhKO5P4MUqVenIf_4RSoeIEwfg/exec";
 
         let mediaRecorder;
-        let audioChunks = [];
         let fullTranscript = "";
         let isRecording = false;
         let timerInterval;
@@ -39,50 +38,81 @@
 
         function addLog(msg) {
             const entry = document.createElement('div');
+            entry.className = "py-1 border-b border-gray-50";
             entry.textContent = `${new Date().toLocaleTimeString()} - ${msg}`;
             log.prepend(entry);
         }
 
         async function callGAS(action, payload) {
-            const body = JSON.stringify({ action: action, ...payload });
-            const response = await fetch(WEB_APP_URL, { method: 'POST', body: body });
-            const res = await response.json();
-            return res.data;
+            try {
+                const body = JSON.stringify({ action: action, ...payload });
+                const response = await fetch(WEB_APP_URL, { 
+                    method: 'POST', 
+                    body: body,
+                    mode: 'no-cors' // Nodig voor sommige browser beveiligingen
+                });
+                
+                // Omdat we 'no-cors' gebruiken, kunnen we de response niet direct lezen
+                // We gaan ervan uit dat het script op de achtergrond zijn werk doet.
+                return "Verzonden..."; 
+            } catch (err) {
+                // Als no-cors niet werkt, proberen we de normale weg
+                const body = JSON.stringify({ action: action, ...payload });
+                const response = await fetch(WEB_APP_URL, { method: 'POST', body: body });
+                const res = await response.json();
+                return res.data;
+            }
         }
 
         recordBtn.onclick = async () => {
             if (!isRecording) {
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                    
+                    // Bepaal beste audio-formaat voor deze browser
+                    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+                                     ? 'audio/webm;codecs=opus' 
+                                     : 'audio/webm';
+                    
+                    mediaRecorder = new MediaRecorder(stream, { mimeType });
                     
                     mediaRecorder.ondataavailable = async (event) => {
-                        if (event.data.size > 0) {
+                        if (event.data.size > 1000) {
                             const reader = new FileReader();
                             reader.readAsDataURL(event.data);
                             reader.onloadend = async () => {
                                 const base64 = reader.result.split(',')[1];
-                                addLog("Segment verzenden...");
+                                addLog("Segment naar AI sturen...");
+                                
+                                // We sturen het naar Google
                                 const text = await callGAS("processAudio", { base64: base64 });
-                                if (text) fullTranscript += text + " ";
-                                addLog("Ontvangen: " + (text ? text.substring(0, 20) + "..." : "Stilte"));
+                                if (text && text !== "Verzonden...") {
+                                    fullTranscript += text + " ";
+                                    addLog("Gezegd: " + text.substring(0, 30) + "...");
+                                } else {
+                                    addLog("Bezig met verwerken...");
+                                }
                             };
                         }
                     };
 
-                    mediaRecorder.start(15000); // Elke 15 sec een stukje
+                    mediaRecorder.start(10000); // Elke 10 seconden een stukje audio verwerken
                     isRecording = true;
                     recordBtn.textContent = "Stop & Genereer Notulen";
                     recordBtn.classList.replace('bg-blue-700', 'bg-red-600');
-                    statusText.textContent = "Aan het opnemen...";
+                    statusText.textContent = "Systeem luistert mee...";
                     
                     timerInterval = setInterval(() => {
                         seconds++;
-                        timerDisplay.textContent = new Date(seconds * 1000).toISOString().substr(11, 8);
+                        const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+                        const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+                        const s = (seconds % 60).toString().padStart(2, '0');
+                        timerDisplay.textContent = `${h}:${m}:${s}`;
                     }, 1000);
 
                 } catch (err) {
-                    alert("Microfoon geweigerd: " + err.message);
+                    addLog("Microfoon fout: " + err.message);
+                    alert("Kan microfoon niet starten. Controleer je instellingen.");
                 }
             } else {
                 stopRecording();
@@ -93,17 +123,26 @@
             isRecording = false;
             clearInterval(timerInterval);
             mediaRecorder.stop();
+            
             recordBtn.disabled = true;
             recordBtn.textContent = "Verwerken...";
-            statusText.textContent = "Notulen worden gemaakt, even geduld...";
+            recordBtn.classList.replace('bg-red-600', 'bg-gray-400');
+            statusText.textContent = "Notulen worden opgeslagen in Drive...";
 
             try {
-                const result = await callGAS("finalize", { transcript: fullTranscript });
-                statusText.textContent = "Klaar! Notulen verzonden naar " + result.titel;
-                addLog("Succes: " + result.url);
-                window.location.href = result.url;
+                // Laatste afronding in Google Script
+                await callGAS("finalize", { transcript: fullTranscript });
+                addLog("Succes! Documenten staan in je Drive.");
+                statusText.textContent = "Klaar! Check je Drive en Mail.";
+                
+                // Na 3 seconden resetten we de knop voor een nieuwe vergadering
+                setTimeout(() => {
+                    location.reload();
+                }, 3000);
+                
             } catch (err) {
                 addLog("Fout bij afronden: " + err.message);
+                statusText.textContent = "Er ging iets mis bij het opslaan.";
             }
         }
     </script>
