@@ -6,73 +6,77 @@
     <title>RCS Notulist Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Speciale Dark Mode tijdens opnemen */
-        body.recording-mode { background-color: #000000 !important; color: #a3a3a3 !important; }
-        .recording-container { background-color: #111111 !important; border: 1px solid #333; box-shadow: none !important; }
-        .hidden-in-recording { display: none !important; }
-        
-        /* Pulserende rode knop */
+        /* Pulserend effect voor de opnameknop */
         .pulse-btn { 
-            background-color: #dc2626 !important; 
-            border-radius: 9999px !important; /* Maakt de knop mooi rond */
             animation: pulse 2s infinite; 
+            box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
         }
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
-            70% { box-shadow: 0 0 0 25px rgba(220, 38, 38, 0); }
+            70% { box-shadow: 0 0 0 30px rgba(220, 38, 38, 0); }
             100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
         }
     </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4 transition-colors duration-500">
+<body class="bg-gray-100 min-h-screen transition-colors duration-500" id="bodyEl">
 
-    <div id="mainContainer" class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center transition-colors duration-500">
-        <h1 class="text-2xl font-bold text-blue-900 mb-2 hidden-in-recording">🎙️ RCS Notulist Pro</h1>
-        <p id="statusText" class="text-gray-500 mb-6 hidden-in-recording">Systeem gereed</p>
+    <div id="startScreen" class="flex flex-col items-center justify-center min-h-screen p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center">
+            <h1 class="text-2xl font-bold text-blue-900 mb-2">🎙️ RCS Notulist Pro</h1>
+            <p class="text-gray-500 mb-8">Systeem is gereed voor gebruik</p>
 
-        <div id="timer" class="text-5xl font-mono font-bold text-gray-800 mb-10 transition-colors duration-500">00:00:00</div>
+            <button id="startBtn" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-5 rounded-xl transition-all shadow-lg text-xl">
+                Start Vergadering
+            </button>
+        </div>
+    </div>
 
-        <button id="recordBtn" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-5 rounded-xl transition-all shadow-lg active:scale-95 text-xl">
-            Start Vergadering
-        </button>
+    <div id="recordingScreen" class="hidden flex-col items-center justify-center min-h-screen p-4 bg-black">
+        <div class="w-full max-w-md text-center">
+            <div id="timer" class="text-6xl font-mono font-bold text-white mb-16 tracking-widest">00:00:00</div>
+            
+            <button id="stopBtn" class="w-48 h-48 mx-auto bg-red-600 text-white font-bold rounded-full text-2xl pulse-btn flex items-center justify-center mb-12">
+                STOP
+            </button>
 
-        <div id="log" class="mt-8 text-left text-xs text-gray-400 max-h-32 overflow-y-auto p-2 border-t border-gray-200 hidden-in-recording"></div>
+            <p id="statusText" class="text-gray-400 mb-4 animate-pulse">Live aan het meeluisteren...</p>
+            <div id="log" class="text-left text-xs text-gray-400 h-40 overflow-y-auto p-4 border border-gray-800 rounded-xl bg-gray-900"></div>
+        </div>
     </div>
 
     <script>
-        // PLAK HIER JE NIEUWE GOOGLE WEB APP URL!!!
+        // PLAK HIER JE LAATSTE GOOGLE WEB APP URL!!!
         const WEB_APP_URL = "PLAK_HIER_JE_NIEUWE_EXEC_URL";
 
+        let globalStream;
         let mediaRecorder;
         let fullTranscript = "";
         let isRecording = false;
         let timerInterval;
+        let chunkTimer;
         let seconds = 0;
-        let wakeLock = null; // Voor het wakker houden van het scherm
+        let wakeLock = null;
 
-        const recordBtn = document.getElementById('recordBtn');
-        const statusText = document.getElementById('statusText');
+        const bodyEl = document.getElementById('bodyEl');
+        const startScreen = document.getElementById('startScreen');
+        const recordingScreen = document.getElementById('recordingScreen');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
         const timerDisplay = document.getElementById('timer');
+        const statusText = document.getElementById('statusText');
         const log = document.getElementById('log');
-        const bodyEl = document.body;
-        const containerEl = document.getElementById('mainContainer');
 
         function addLog(msg, color = "text-gray-400") {
             const entry = document.createElement('div');
-            entry.className = `py-1 border-b border-gray-100 ${color}`;
+            entry.className = `py-1 border-b border-gray-800 ${color}`;
             entry.textContent = `${new Date().toLocaleTimeString()} - ${msg}`;
             log.prepend(entry);
         }
 
-        // Scherm wakker houden
         async function requestWakeLock() {
             try {
-                if ('wakeLock' in navigator) {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                }
-            } catch (err) {
-                console.log("Wake Lock geweigerd:", err);
-            }
+                if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); }
+            } catch (err) { console.log("Wake Lock niet ondersteund."); }
         }
 
         async function callGAS(action, payload) {
@@ -86,98 +90,116 @@
                 const result = await response.json();
                 return result.data;
             } catch (err) {
-                console.error("GAS Error:", err);
+                console.error("GAS Fout:", err);
                 return null;
             }
         }
 
-        recordBtn.onclick = async () => {
-            if (!isRecording) {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    
-                    // CHECK HET FORMAAT VAN DE TELEFOON!
-                    let options = {};
-                    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-                        options = { mimeType: 'audio/webm;codecs=opus' };
-                    } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-                        options = { mimeType: 'audio/mp4' };
+        // De nieuwe "slimme" opname functie
+        async function recordSegment() {
+            if (!isRecording) return;
+            
+            try {
+                // Zoek het juiste formaat
+                let mime = 'audio/webm';
+                if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) mime = 'audio/webm;codecs=opus';
+                else if (MediaRecorder.isTypeSupported('audio/mp4')) mime = 'audio/mp4';
+
+                mediaRecorder = new MediaRecorder(globalStream, { mimeType: mime });
+                const actualMime = mediaRecorder.mimeType || mime;
+                
+                mediaRecorder.ondataavailable = async (event) => {
+                    if (event.data.size > 0) {
+                        const reader = new FileReader();
+                        reader.readAsDataURL(event.data);
+                        reader.onloadend = async () => {
+                            const base64 = reader.result.split(',')[1];
+                            addLog("Audio naar AI...", "text-gray-500");
+                            
+                            const text = await callGAS("processAudio", { base64: base64, mimeType: actualMime });
+                            
+                            if (text && text.trim() !== "") {
+                                fullTranscript += text + " ";
+                                addLog(text.substring(0, 35) + "...", "text-green-400");
+                            } else {
+                                addLog("Geen spraak herkend.", "text-gray-600");
+                            }
+                        };
                     }
-                    
-                    mediaRecorder = new MediaRecorder(stream, options);
-                    const actualMimeType = mediaRecorder.mimeType || 'audio/webm'; // Bewaar voor Google
-                    
-                    mediaRecorder.ondataavailable = async (event) => {
-                        if (event.data.size > 0) {
-                            const reader = new FileReader();
-                            reader.readAsDataURL(event.data);
-                            reader.onloadend = async () => {
-                                const base64 = reader.result.split(',')[1];
-                                
-                                // STUUR HET MIME-TYPE MEE NAAR GOOGLE
-                                const text = await callGAS("processAudio", { base64: base64, mimeType: actualMimeType });
-                                
-                                if (text && text.trim() !== "") {
-                                    fullTranscript += text + " ";
-                                    addLog("Gezegd: " + text.substring(0, 30) + "...", "text-green-600");
-                                }
-                            };
-                        }
-                    };
+                };
 
-                    mediaRecorder.start(10000); // 10 seconden
-                    isRecording = true;
-                    
-                    // --- UI AANPASSINGEN: DARK MODE & WAKE LOCK ---
-                    requestWakeLock();
-                    bodyEl.classList.add('recording-mode');
-                    containerEl.classList.add('recording-container');
-                    timerDisplay.classList.replace('text-gray-800', 'text-white');
-                    
-                    recordBtn.textContent = "STOP OPNAME";
-                    recordBtn.className = "w-full text-white font-bold py-8 rounded-xl transition-all shadow-lg active:scale-95 text-2xl pulse-btn mt-10";
-                    
-                    timerInterval = setInterval(() => {
-                        seconds++;
-                        const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
-                        const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-                        const s = (seconds % 60).toString().padStart(2, '0');
-                        timerDisplay.textContent = `${h}:${m}:${s}`;
-                    }, 1000);
+                mediaRecorder.start();
+                
+                // Stop na 15 seconden en start direct een nieuwe opname (voor verse headers)
+                chunkTimer = setTimeout(() => {
+                    if (isRecording && mediaRecorder.state !== 'inactive') {
+                        mediaRecorder.stop();
+                        recordSegment(); // Start de volgende cyclus
+                    }
+                }, 15000);
 
-                } catch (err) {
-                    alert("Microfoon fout: " + err.message);
-                }
-            } else {
-                stopRecording();
+            } catch (err) {
+                addLog("Opnamefout: " + err.message, "text-red-500");
+            }
+        }
+
+        startBtn.onclick = async () => {
+            try {
+                globalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                isRecording = true;
+                
+                // Switch UI naar Dark Mode
+                startScreen.classList.add('hidden');
+                recordingScreen.classList.remove('hidden');
+                recordingScreen.classList.add('flex');
+                bodyEl.classList.replace('bg-gray-100', 'bg-black');
+                
+                requestWakeLock();
+                recordSegment(); // Start de cyclus
+                
+                timerInterval = setInterval(() => {
+                    seconds++;
+                    const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+                    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+                    const s = (seconds % 60).toString().padStart(2, '0');
+                    timerDisplay.textContent = `${h}:${m}:${s}`;
+                }, 1000);
+
+            } catch (err) {
+                alert("Geef toestemming voor de microfoon om te starten.");
             }
         };
 
-        async function stopRecording() {
+        stopBtn.onclick = async () => {
             isRecording = false;
+            clearTimeout(chunkTimer);
             clearInterval(timerInterval);
-            mediaRecorder.stop();
             
-            // --- UI HERSTELLEN ---
-            if (wakeLock !== null) { wakeLock.release(); wakeLock = null; }
-            bodyEl.classList.remove('recording-mode');
-            containerEl.classList.remove('recording-container');
-            timerDisplay.classList.replace('text-white', 'text-gray-800');
-            
-            recordBtn.className = "w-full bg-gray-400 text-white font-bold py-5 rounded-xl text-xl mt-0 cursor-not-allowed";
-            recordBtn.textContent = "Notulen verwerken... even geduld";
-            recordBtn.disabled = true;
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            if (globalStream) {
+                globalStream.getTracks().forEach(track => track.stop());
+            }
+            if (wakeLock) { wakeLock.release(); }
+
+            // UI Update
+            stopBtn.className = "w-48 h-48 mx-auto bg-gray-800 text-gray-500 font-bold rounded-full text-xl flex items-center justify-center mb-12";
+            stopBtn.textContent = "Verwerken...";
+            statusText.textContent = "Notulen opslaan in Drive, moment geduld...";
+            statusText.classList.remove('animate-pulse');
 
             setTimeout(async () => {
                 const result = await callGAS("finalize", { transcript: fullTranscript });
                 if (result) {
+                    addLog("Succes! Documenten opgeslagen.", "text-blue-400");
                     window.location.href = result.url;
                 } else {
-                    alert("Oeps, transcript is leeg. Praatte je wel hard genoeg?");
+                    alert("Opslaan mislukt of er was echt geen spraak herkend.");
                     location.reload();
                 }
-            }, 2000);
-        }
+            }, 3000);
+        };
     </script>
 </body>
 </html>
