@@ -2,105 +2,122 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RCS Pro V13.2 - No Sleep</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RCS Safe V13.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-zinc-950 text-white p-8 flex flex-col h-screen items-center justify-center font-sans">
 
-    <div class="text-center mb-12">
-        <h1 class="text-blue-500 font-black tracking-widest text-2xl">RCS NOTULIST PRO</h1>
-        <p id="wakeStatus" class="text-zinc-500 mt-2 text-xs uppercase tracking-tighter">Schermbeveiliging: ACTIEF</p>
-    </div>
-
-    <div class="relative">
-        <input type="file" id="audioCapture" accept="audio/*,video/mp4" capture="microphone" class="hidden">
-        <label for="audioCapture" id="mainBtnLabel" class="w-64 h-64 bg-red-600 rounded-full flex flex-col items-center justify-center text-center p-6 shadow-[0_0_60px_rgba(220,38,38,0.3)] active:scale-95 transition-all cursor-pointer border-8 border-white/10">
-            <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
-            <span class="text-xl font-black">START OPNAME</span>
+    <div id="mainView" class="text-center">
+        <h1 class="text-blue-500 font-black tracking-widest text-2xl mb-8">RCS NOTULIST SAFE</h1>
+        
+        <input type="file" id="audioCapture" accept="audio/*" capture="microphone" class="hidden">
+        <label for="audioCapture" id="btnLabel" class="w-64 h-64 bg-red-600 rounded-full flex flex-col items-center justify-center text-center p-6 shadow-2xl cursor-pointer border-8 border-white/10 active:scale-95 transition-all">
+            <span id="btnText" class="text-xl font-black">START OPNAME</span>
         </label>
+        <p id="retryMsg" class="mt-4 text-orange-500 hidden font-bold italic">De AI is druk. Je opname is veilig. Klik hierboven om het opnieuw te proberen.</p>
     </div>
 
-    <div id="processing" class="hidden fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-10">
+    <div id="processing" class="hidden fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-10 text-center">
         <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 mb-6"></div>
-        <h2 class="text-2xl font-bold">Verwerken...</h2>
-        <p class="text-zinc-400 mt-2 text-center italic">Ik hou je telefoon wakker tot de notulen klaar zijn.</p>
+        <h2 class="text-2xl font-bold">Audio beveiligen & Notuleren...</h2>
+        <p class="text-zinc-400 mt-2">Ik bewaar eerst je opname in Drive voor de zekerheid.</p>
     </div>
 
-    <div id="success" class="hidden fixed inset-0 bg-zinc-900 z-50 flex flex-col items-center justify-center p-10">
-        <div class="bg-white text-black p-8 rounded-[3rem] w-full max-w-sm text-center shadow-2xl">
-            <h2 class="text-3xl font-black mb-4 text-green-600">Gereed!</h2>
-            <a id="docLink" href="#" target="_blank" class="block w-full bg-blue-600 text-white py-5 rounded-2xl font-bold text-lg mb-4">OPEN NOTULEN</a>
-            <button onclick="location.reload()" class="text-zinc-400 font-bold uppercase text-xs tracking-widest">Nieuwe opname</button>
+    <div id="successView" class="hidden fixed inset-0 bg-zinc-900 z-50 flex flex-col items-center justify-center p-8 text-center">
+        <div class="bg-white text-black p-8 rounded-[2.5rem] w-full max-w-sm shadow-2xl">
+            <h2 class="text-3xl font-black text-green-600 mb-2">Geslaagd!</h2>
+            <p class="mb-6 text-sm text-gray-500">De notulen staan klaar in je Drive.</p>
+            
+            <a id="docLink" href="#" target="_blank" class="block w-full bg-blue-600 text-white py-4 rounded-xl font-bold mb-8">OPEN NOTULEN</a>
+            
+            <div class="border-t pt-6">
+                <p class="font-bold text-xs uppercase tracking-widest mb-4 text-gray-400">Originele audio opname:</p>
+                <div class="flex gap-2">
+                    <button id="keepAudio" class="flex-1 bg-zinc-100 py-3 rounded-lg font-bold text-sm">BEWAREN</button>
+                    <button id="deleteAudio" class="flex-1 bg-red-50 text-red-600 py-3 rounded-lg font-bold text-sm">VERWIJDEREN</button>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyD63lTgXHRE8rzcwUpyPc8IMdbDu0am2miMutfFAbgEk0eMHEkssa-wDICf3Az3HURog/exec";
-        let wakeLock = null;
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyYlnWaCN7YYO_LPp83xvBQBR9Qw9aFjtNZ1XkijbU9FFXAgdXbZaI6esYkSvyYLtBYog/exec";
+        let currentAudioBase64 = null;
+        let currentMimeType = null;
+        let currentAudioFileId = null;
 
-        // FUNCTIE OM SCHERM WAKKER TE HOUDEN
-        async function requestWakeLock() {
-            try {
-                if ('wakeLock' in navigator) {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                    document.getElementById('wakeStatus').innerText = "Schermbeveiliging: UITGESCHAKELD (Stay Awake)";
-                    document.getElementById('wakeStatus').classList.replace('text-zinc-500', 'text-green-500');
-                }
-            } catch (err) {
-                console.log("WakeLock mislukt: " + err.message);
-            }
-        }
-
-        document.getElementById('audioCapture').addEventListener('change', async function(e) {
+        document.getElementById('audioCapture').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
-
-            // Zodra de upload begint, vragen we de Wake Lock aan
-            await requestWakeLock();
-
-            document.getElementById('processing').classList.remove('hidden');
-
+            
             const reader = new FileReader();
             reader.readAsDataURL(file);
-            reader.onloadend = async () => {
-                const base64 = reader.result.split(',')[1];
-                let mimeType = file.type || "audio/mp4";
-                
-                try {
-                    const response = await fetch(WEB_APP_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({ base64: base64, mimeType: mimeType })
-                    });
-                    const res = await response.json();
-                    
-                    if (res.status === "success") {
-                        // Notulen klaar? Dan mag de telefoon weer gaan slapen
-                        if (wakeLock !== null) {
-                            await wakeLock.release();
-                            wakeLock = null;
-                        }
-                        
-                        document.getElementById('processing').classList.add('hidden');
-                        document.getElementById('success').classList.remove('hidden');
-                        document.getElementById('docLink').href = res.docUrl;
-                    } else {
-                        alert("Fout: " + res.message);
-                        location.reload();
-                    }
-                } catch (err) {
-                    alert("Netwerkfout.");
-                    location.reload();
-                }
+            reader.onloadend = () => {
+                currentAudioBase64 = reader.result.split(',')[1];
+                currentMimeType = file.type || "audio/mp4";
+                sendToGoogle();
             };
         });
 
-        // Als de gebruiker terugkomt naar de tab, opnieuw wake-lock aanvragen indien nodig
-        document.addEventListener('visibilitychange', async () => {
-            if (wakeLock !== null && document.visibilityState === 'visible') {
-                await requestWakeLock();
+        async function sendToGoogle() {
+            document.getElementById('processing').classList.remove('hidden');
+            document.getElementById('retryMsg').classList.add('hidden');
+
+            try {
+                const response = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ base64: currentAudioBase64, mimeType: currentMimeType })
+                });
+                const res = await response.json();
+                
+                if (res.status === "success") {
+                    currentAudioFileId = res.audioFileId;
+                    document.getElementById('docLink').href = res.docUrl;
+                    showSuccess();
+                } else if (res.status === "ai_busy") {
+                    currentAudioFileId = res.audioFileId;
+                    alert("De AI is momenteel overbezet. GEEN PANIEK: Je opname is al veilig opgeslagen in je Drive map!");
+                    showRetry();
+                } else {
+                    alert("Fout: " + res.message);
+                    showRetry();
+                }
+            } catch (err) {
+                alert("Netwerkfout. Probeer het over een momentje nogmaals.");
+                showRetry();
             }
-        });
+        }
+
+        function showSuccess() {
+            document.getElementById('processing').classList.add('hidden');
+            document.getElementById('successView').classList.remove('hidden');
+        }
+
+        function showRetry() {
+            document.getElementById('processing').classList.add('hidden');
+            document.getElementById('btnText').innerText = "OPNIEUW PROBEREN";
+            document.getElementById('retryMsg').classList.remove('hidden');
+            // We laten de file input even voor wat het is, we hergebruiken de data
+            document.getElementById('btnLabel').onclick = (e) => {
+                if(currentAudioBase64) {
+                    e.preventDefault();
+                    sendToGoogle();
+                }
+            };
+        }
+
+        document.getElementById('keepAudio').onclick = () => location.reload();
+
+        document.getElementById('deleteAudio').onclick = async () => {
+            if(!currentAudioFileId) return location.reload();
+            document.getElementById('deleteAudio').innerText = "...";
+            await fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: "deleteAudio", fileId: currentAudioFileId })
+            });
+            location.reload();
+        };
     </script>
 </body>
 </html>
