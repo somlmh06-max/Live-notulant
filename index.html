@@ -2,55 +2,84 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RCS Notulist Pro 6.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RCS Pro V8.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .pulse-red { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 
+            0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); transform: scale(1); }
+            70% { box-shadow: 0 0 0 40px rgba(220, 38, 38, 0); transform: scale(1.05); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); transform: scale(1); }
+        }
+        body { background-color: #f8fafc; touch-action: manipulation; }
+        .recording-bg { background-color: #000000 !important; }
+    </style>
 </head>
-<body class="bg-gray-50 font-sans">
+<body>
 
     <div id="startScreen" class="flex flex-col items-center justify-center min-h-screen p-6">
-        <div class="bg-white p-8 rounded-3xl shadow-xl w-full max-w-sm text-center border-t-8 border-blue-900">
-            <h1 class="text-3xl font-bold text-blue-900 mb-2">🎙️ RCS PRO</h1>
-            <p class="text-gray-400 mb-8 uppercase text-xs tracking-widest">Meeting Intelligence</p>
-            <button id="startBtn" class="w-full bg-blue-700 text-white font-bold py-6 rounded-2xl shadow-lg text-xl active:scale-95 transition-all">START VERGADERING</button>
+        <div class="bg-white p-10 rounded-[40px] shadow-2xl w-full max-w-sm text-center border-b-[12px] border-blue-900">
+            <h1 class="text-4xl font-black text-blue-900 mb-2 italic">RCS PRO</h1>
+            <p class="text-gray-400 mb-10 font-bold tracking-widest text-xs">VERSIE 8.1 - ANTI-SLEEP</p>
+            <button id="startBtn" class="w-full bg-blue-600 text-white font-black py-8 rounded-3xl shadow-xl text-2xl active:scale-95 transition-all">
+                START OPNAME
+            </button>
         </div>
     </div>
 
-    <div id="recordingScreen" class="hidden flex-col items-center justify-center min-h-screen bg-blue-950 text-white p-6">
-        <div id="timer" class="text-7xl font-mono mb-12">00:00</div>
-        <button id="stopBtn" class="w-48 h-48 bg-red-600 rounded-full border-8 border-red-500/50 shadow-2xl text-2xl font-bold animate-pulse">STOP</button>
-        <div id="status" class="mt-8 text-blue-300">Marcel is aan het woord...</div>
+    <div id="recordingScreen" class="hidden flex-col items-center justify-center min-h-screen recording-bg text-white p-6">
+        <div id="timer" class="text-8xl font-mono font-bold mb-20 tracking-tighter text-red-600">00:00</div>
+        <button id="stopBtn" class="w-64 h-64 bg-red-600 rounded-full pulse-red flex items-center justify-center text-4xl font-black shadow-2xl border-[12px] border-red-500/20">
+            STOP
+        </button>
+        <div class="mt-20 text-gray-500 font-bold tracking-widest animate-pulse">TELEFOON BLIJFT WAKKER</div>
     </div>
 
-    <div id="resultScreen" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md items-center justify-center p-4 z-50 overflow-y-auto">
-        <div class="bg-white w-full max-w-md rounded-3xl p-8 shadow-2xl my-auto">
-            <h2 class="text-2xl font-black text-gray-800 mb-2">Notulen Gereed!</h2>
-            <p class="text-gray-500 mb-6">Selecteer actiepunten voor Google Tasks:</p>
-
-            <div id="taskList" class="space-y-3 mb-8 max-h-60 overflow-y-auto">
-                </div>
-
-            <button id="syncBtn" class="w-full bg-green-600 text-white font-bold py-4 rounded-xl mb-3 shadow-lg flex items-center justify-center gap-2">
-                <span>✓</span> SYNC NAAR GOOGLE TASKS
+    <div id="resultScreen" class="hidden fixed inset-0 bg-black/90 backdrop-blur-xl items-center justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-white w-full max-w-md rounded-[40px] p-8 shadow-2xl my-auto">
+            <h2 class="text-3xl font-black text-gray-900 mb-2">Gereed!</h2>
+            <div id="taskList" class="space-y-4 mb-10 max-h-64 overflow-y-auto pr-2 mt-4"></div>
+            <button id="syncBtn" class="w-full bg-green-600 text-white font-bold py-5 rounded-2xl mb-4 shadow-lg flex items-center justify-center gap-3">
+                SYNC NAAR TASKS
             </button>
-
-            <a id="docLink" href="#" target="_blank" class="block w-full bg-blue-600 text-white text-center font-bold py-4 rounded-xl shadow-lg">
+            <a id="docLink" href="#" target="_blank" class="block w-full bg-blue-600 text-white text-center font-bold py-5 rounded-2xl shadow-lg">
                 OPEN GOOGLE DOC
             </a>
-            <button onclick="location.reload()" class="w-full text-gray-400 mt-6 text-sm underline">NIEUWE OPNAME</button>
+            <button onclick="location.reload()" class="w-full text-gray-400 mt-8 font-bold text-sm uppercase tracking-widest">Nieuwe sessie</button>
         </div>
     </div>
 
     <script>
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx4ijfqH3FdIcsqZYgwS9TPqdde3-VMtfQjJJQyJcZ7hlaHOhULbEFVnEaQFg59lgP8Bg/exec"; 
-        let globalStream, mediaRecorder, fullTranscript = "", isRecording = false, timerInterval, seconds = 0, foundTasks = [];
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz1whIpAifx0Xzh63GlyBpTEJwyzK3dzDw4G3qtwmO8hs-3H2dnZ982GmlOejRTEh3X/exec"; 
+        let globalStream, mediaRecorder, fullTranscript = "", isRecording = false, timerInterval, seconds = 0, foundTasks = [], wakeLock = null;
+
+        // Anti-Sleep truuk voor mobiel
+        async function keepAwake() {
+            try {
+                if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+            } catch (err) {}
+            // Blijf elke 10 seconden vragen om het scherm wakker te houden
+            setInterval(async () => {
+                if (isRecording && wakeLock === null && 'wakeLock' in navigator) {
+                    try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
+                }
+            }, 10000);
+        }
+
+        // Als de pagina even weggaat (bijv. notificatie), herstel wakelock
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible' && isRecording) {
+                keepAwake();
+            }
+        });
 
         async function callGAS(action, payload) {
             const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action, ...payload }) });
             return (await res.json()).data;
         }
 
-        async function startNewRecorder() {
+        async function startRecording() {
             if (!isRecording) return;
             mediaRecorder = new MediaRecorder(globalStream);
             mediaRecorder.ondataavailable = async (e) => {
@@ -62,24 +91,33 @@
                 };
             };
             mediaRecorder.start();
-            setTimeout(() => { if (isRecording) { mediaRecorder.stop(); startNewRecorder(); } }, 15000);
+            setTimeout(() => { if (isRecording) { mediaRecorder.stop(); startRecording(); } }, 10000);
         }
 
         document.getElementById('startBtn').onclick = async () => {
             globalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             isRecording = true;
+            keepAwake();
+            
+            document.body.classList.add('recording-bg');
             document.getElementById('startScreen').classList.add('hidden');
             document.getElementById('recordingScreen').classList.replace('hidden', 'flex');
-            startNewRecorder();
+            
+            startRecording();
             timerInterval = setInterval(() => {
                 seconds++;
-                document.getElementById('timer').textContent = `${Math.floor(seconds/60).toString().padStart(2,'0')}:${(seconds%60).toString().padStart(2,'0')}`;
+                const m = Math.floor(seconds/60).toString().padStart(2,'0');
+                const s = (seconds%60).toString().padStart(2,'0');
+                document.getElementById('timer').textContent = `${m}:${s}`;
             }, 1000);
         };
 
         document.getElementById('stopBtn').onclick = async () => {
-            isRecording = false; clearInterval(timerInterval);
-            document.getElementById('status').textContent = "Google Doc wordt opgemaakt...";
+            isRecording = false;
+            if(wakeLock) wakeLock.release();
+            clearInterval(timerInterval);
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('stopBtn').textContent = "...";
             const result = await callGAS("finalize", { transcript: fullTranscript });
             
             if (result) {
@@ -88,8 +126,8 @@
                 const taskDiv = document.getElementById('taskList');
                 foundTasks.forEach((t, i) => {
                     const item = document.createElement('label');
-                    item.className = "flex items-center p-3 bg-gray-50 rounded-xl border border-gray-100 cursor-pointer";
-                    item.innerHTML = `<input type="checkbox" checked value="${i}" class="w-6 h-6 mr-3 rounded text-blue-600"> <span class="text-sm font-medium">${t}</span>`;
+                    item.className = "flex items-center p-4 bg-gray-50 rounded-2xl border-2 border-gray-100 cursor-pointer active:bg-blue-50";
+                    item.innerHTML = `<input type="checkbox" checked value="${i}" class="w-7 h-7 mr-4 rounded-full text-blue-600 border-2"> <span class="text-sm font-bold text-gray-700">${t}</span>`;
                     taskDiv.appendChild(item);
                 });
                 document.getElementById('resultScreen').classList.replace('hidden', 'flex');
@@ -99,10 +137,10 @@
         document.getElementById('syncBtn').onclick = async () => {
             const selectedIdx = Array.from(document.querySelectorAll('#taskList input:checked')).map(cb => cb.value);
             const selectedTasks = selectedIdx.map(i => foundTasks[i]);
-            document.getElementById('syncBtn').textContent = "Synchroniseren...";
-            const res = await callGAS("syncTasks", { tasks: selectedTasks });
-            alert(res);
-            document.getElementById('syncBtn').textContent = "SYNC VOLTOOID!";
+            document.getElementById('syncBtn').textContent = "BEZIG...";
+            const response = await callGAS("syncTasks", { tasks: selectedTasks });
+            alert(response); // Laat de bevestiging of error direct zien
+            document.getElementById('syncBtn').textContent = "✓ SYNC VOLTOOID";
             document.getElementById('syncBtn').classList.replace('bg-green-600', 'bg-gray-400');
         };
     </script>
