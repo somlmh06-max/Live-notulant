@@ -3,86 +3,168 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RCS V15.0</title>
+    <title>RCS V17.0 - Universal</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-black text-white p-6 font-sans">
+<body class="bg-black text-white p-6 font-sans flex flex-col items-center justify-center min-h-screen">
 
-    <div class="max-w-md mx-auto">
-        <h1 class="text-blue-500 font-black text-center text-2xl mb-12">RCS NOTULIST PRO</h1>
+    <div class="max-w-md w-full">
+        <h1 class="text-blue-500 font-black text-center text-2xl mb-12 tracking-widest">RCS NOTULIST PRO</h1>
         
-        <input type="file" id="audioIn" accept="audio/*" capture="microphone" class="hidden">
-        
-        <label for="audioIn" id="btn" class="w-48 h-48 bg-red-600 rounded-full mx-auto flex items-center justify-center text-center p-4 shadow-2xl cursor-pointer">
-            <span class="font-bold">START OPNAME</span>
-        </label>
+        <button id="recordBtn" class="w-56 h-56 bg-red-600 rounded-full mx-auto flex flex-col items-center justify-center text-center p-4 shadow-2xl transition-all border-8 border-white/10 outline-none">
+            <span id="btnText" class="font-black text-xl tracking-wide">START OPNAME</span>
+            <span id="timer" class="text-lg font-mono mt-2 hidden opacity-80">00:00</span>
+        </button>
 
-        <div id="loader" class="hidden fixed inset-0 bg-black/90 flex flex-col items-center justify-center">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-            <p>AI aan het werk...</p>
+        <p class="text-center text-zinc-600 text-xs mt-8">Werkt op laptop, tablet en smartphone</p>
+
+        <div id="loader" class="hidden fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-500 mb-6"></div>
+            <p id="loaderText" class="text-blue-400 font-bold tracking-widest uppercase text-sm">Audio verwerken...</p>
         </div>
 
-        <div id="success" class="hidden fixed inset-0 bg-zinc-950 p-8 flex flex-col justify-center">
+        <div id="success" class="hidden fixed inset-0 bg-zinc-950 p-8 flex flex-col justify-center z-50">
             <div class="bg-white text-black p-6 rounded-3xl">
-                <h2 class="text-2xl font-bold text-green-600 mb-4">Klaar!</h2>
+                <h2 class="text-2xl font-black text-green-600 mb-4">Klaar!</h2>
                 
-                <a id="docBtn" href="#" target="_blank" class="block w-full bg-blue-600 text-white py-3 rounded-xl text-center font-bold mb-6">📄 OPEN GOOGLE DOC</a>
+                <a id="docBtn" href="#" target="_blank" class="block w-full bg-blue-600 text-white py-4 rounded-xl text-center font-bold mb-6 shadow-lg">📄 OPEN GOOGLE DOC</a>
                 
                 <div id="taskArea" class="hidden">
-                    <p class="text-xs font-bold text-gray-400 uppercase mb-2">Selecteer taken voor Google Tasks:</p>
+                    <p class="text-xs font-bold text-gray-500 uppercase mb-2">Selecteer taken voor Google Tasks:</p>
                     <div id="taskList" class="space-y-3 mb-6 max-h-48 overflow-y-auto"></div>
-                    <button id="syncBtn" class="w-full bg-green-600 text-white py-3 rounded-xl font-bold">ZET IN GOOGLE TASKS</button>
+                    <button id="syncBtn" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold shadow-lg">ZET IN GOOGLE TASKS</button>
                 </div>
                 
-                <button onclick="location.reload()" class="w-full mt-4 text-gray-400 text-xs">SLUITEN</button>
+                <button onclick="location.reload()" class="w-full mt-6 text-gray-400 text-xs font-bold uppercase tracking-wider">Sluiten & Nieuwe Opname</button>
             </div>
         </div>
     </div>
 
     <script>
         // VUL HIER JOUW APPS SCRIPT URL IN !!!
-        const URL = "https://script.google.com/macros/s/AKfycbzKXr37Hjj9z3vkJsi9x89caX1QVfaT60NeRgyu9hbHxTIQDmmJTIWkOmqYXk7JQW_wvQ/exec"; 
+        const URL = "https://script.google.com/macros/s/AKfycbwAxo4Ljk8m-sjmAaomxpNGoRQf7pBiaOl1XpwhqJFirvfbiqrMG9MzJftaMf0Z9UF6/exec"; 
         let currentDoc = "";
+        
+        // Audio recording variabelen
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let timerInterval;
+        let seconds = 0;
 
-        // Als er een opname wordt gemaakt
-        document.getElementById('audioIn').onchange = async (e) => {
-            const file = e.target.files[0];
-            if(!file) return;
-            document.getElementById('loader').classList.remove('hidden');
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onloadend = async () => {
-                const res = await fetch(URL, { 
-                    method: 'POST', 
-                    body: JSON.stringify({ base64: reader.result.split(',')[1], mimeType: file.type })
-                });
-                showResult(await res.json());
-            };
+        const recordBtn = document.getElementById('recordBtn');
+        const btnText = document.getElementById('btnText');
+        const timerDisplay = document.getElementById('timer');
+        const loader = document.getElementById('loader');
+
+        // Knop logica
+        recordBtn.onclick = async () => {
+            if (!isRecording) {
+                await startRecording();
+            } else {
+                stopRecording();
+            }
         };
+
+        // Starten met opnemen
+        async function startRecording() {
+            try {
+                // Vraag toestemming aan de browser/device voor de microfoon
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = e => {
+                    if (e.data.size > 0) audioChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = processAudio;
+                mediaRecorder.start();
+                isRecording = true;
+                
+                // UI Update: Knop gaat knipperen en timer start
+                recordBtn.classList.replace('bg-red-600', 'bg-red-500');
+                recordBtn.classList.add('animate-pulse');
+                btnText.innerText = "STOP OPNAME";
+                timerDisplay.classList.remove('hidden');
+                
+                seconds = 0;
+                timerDisplay.innerText = "00:00";
+                timerInterval = setInterval(() => {
+                    seconds++;
+                    const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+                    const s = String(seconds % 60).padStart(2, '0');
+                    timerDisplay.innerText = `${m}:${s}`;
+                }, 1000);
+
+            } catch (err) {
+                alert("Microfoon niet gevonden of geen toestemming gegeven. Fout: " + err.message);
+            }
+        }
+
+        // Stoppen met opnemen
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop()); // Zet de microfoon echt uit
+            }
+            isRecording = false;
+            clearInterval(timerInterval);
+            
+            // UI Update
+            recordBtn.classList.replace('bg-red-500', 'bg-zinc-800');
+            recordBtn.classList.remove('animate-pulse');
+            btnText.innerText = "BEZIG...";
+            timerDisplay.classList.add('hidden');
+        }
+
+        // Opname omzetten en versturen naar Apps Script
+        function processAudio() {
+            loader.classList.remove('hidden');
+            
+            // Maak een audiobestand (Blob) van de opgenomen blokjes
+            const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+            
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            reader.onloadend = async () => {
+                const base64data = reader.result.split(',')[1];
+                try {
+                    const res = await fetch(URL, { 
+                        method: 'POST', 
+                        body: JSON.stringify({ base64: base64data, mimeType: audioBlob.type })
+                    });
+                    showResult(await res.json());
+                } catch (e) {
+                    alert("Fout bij verzenden. Check je internetverbinding.");
+                    location.reload();
+                }
+            };
+        }
 
         // Verwerk het antwoord van de AI
         function showResult(res) {
-            document.getElementById('loader').classList.add('hidden');
+            loader.classList.add('hidden');
             if(res.status === "success") {
                 currentDoc = res.docUrl;
                 document.getElementById('docBtn').href = currentDoc;
                 document.getElementById('success').classList.remove('hidden');
                 
-                // Bouw de lijst met vinkjes als er taken zijn
                 if(res.tasks && res.tasks.length > 0) {
                     document.getElementById('taskArea').classList.remove('hidden');
                     const list = document.getElementById('taskList');
                     list.innerHTML = "";
-                    res.tasks.forEach((t, i) => {
+                    res.tasks.forEach((t) => {
                         list.innerHTML += `
-                            <label class="flex items-start gap-3 p-2 bg-gray-50 rounded-lg">
-                                <input type="checkbox" value="${t}" class="task-cb mt-1 w-5 h-5">
-                                <span class="text-sm">${t}</span>
+                            <label class="flex items-start gap-3 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                                <input type="checkbox" value="${t}" class="task-cb mt-1 w-5 h-5 accent-blue-600">
+                                <span class="text-sm font-medium text-zinc-800">${t}</span>
                             </label>`;
                     });
                 }
             } else { 
                 alert("AI is druk. De audio is opgeslagen in je Google Drive. Controleer je mail morgenvroeg!"); 
+                location.reload();
             }
         }
 
@@ -101,7 +183,7 @@
             });
             
             btn.innerText = "✓ OVERGEZET";
-            btn.classList.replace('bg-green-600', 'bg-gray-400');
+            btn.classList.replace('bg-green-600', 'bg-zinc-400');
         };
     </script>
 </body>
