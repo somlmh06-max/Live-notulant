@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RCS Pro V13</title>
+    <title>RCS Pro V13.2 - No Sleep</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-zinc-950 text-white p-8 flex flex-col h-screen items-center justify-center font-sans">
 
     <div class="text-center mb-12">
         <h1 class="text-blue-500 font-black tracking-widest text-2xl">RCS NOTULIST PRO</h1>
-        <p class="text-zinc-500 mt-2">Versie 13.0 | Native Audio</p>
+        <p id="wakeStatus" class="text-zinc-500 mt-2 text-xs uppercase tracking-tighter">Schermbeveiliging: ACTIEF</p>
     </div>
 
     <div class="relative">
-        <input type="file" id="audioCapture" accept="audio/*" capture="microphone" class="hidden">
-        <label for="audioCapture" class="w-64 h-64 bg-red-600 rounded-full flex flex-col items-center justify-center text-center p-6 shadow-[0_0_60px_rgba(220,38,38,0.3)] active:scale-95 transition-all cursor-pointer border-8 border-white/10">
+        <input type="file" id="audioCapture" accept="audio/*,video/mp4" capture="microphone" class="hidden">
+        <label for="audioCapture" id="mainBtnLabel" class="w-64 h-64 bg-red-600 rounded-full flex flex-col items-center justify-center text-center p-6 shadow-[0_0_60px_rgba(220,38,38,0.3)] active:scale-95 transition-all cursor-pointer border-8 border-white/10">
             <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
             <span class="text-xl font-black">START OPNAME</span>
         </label>
@@ -23,27 +23,41 @@
 
     <div id="processing" class="hidden fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-10">
         <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 mb-6"></div>
-        <h2 class="text-2xl font-bold">Notulen worden gemaakt...</h2>
-        <p class="text-zinc-400 mt-2 text-center">De AI verwerkt nu de audio en schrijft het Google Doc. Een moment geduld.</p>
+        <h2 class="text-2xl font-bold">Verwerken...</h2>
+        <p class="text-zinc-400 mt-2 text-center italic">Ik hou je telefoon wakker tot de notulen klaar zijn.</p>
     </div>
 
     <div id="success" class="hidden fixed inset-0 bg-zinc-900 z-50 flex flex-col items-center justify-center p-10">
-        <div class="bg-white text-black p-8 rounded-[3rem] w-full max-w-sm text-center">
-            <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-            </div>
-            <h2 class="text-3xl font-black mb-4">Gereed!</h2>
+        <div class="bg-white text-black p-8 rounded-[3rem] w-full max-w-sm text-center shadow-2xl">
+            <h2 class="text-3xl font-black mb-4 text-green-600">Gereed!</h2>
             <a id="docLink" href="#" target="_blank" class="block w-full bg-blue-600 text-white py-5 rounded-2xl font-bold text-lg mb-4">OPEN NOTULEN</a>
             <button onclick="location.reload()" class="text-zinc-400 font-bold uppercase text-xs tracking-widest">Nieuwe opname</button>
         </div>
     </div>
 
     <script>
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyKjN_vaGZez0x4TM4KiDNOg80jHnUAmeRn6lnm6IqOF9dsYI0-EI27Ub7DyyxNHgdfrw/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyD63lTgXHRE8rzcwUpyPc8IMdbDu0am2miMutfFAbgEk0eMHEkssa-wDICf3Az3HURog/exec";
+        let wakeLock = null;
 
-        document.getElementById('audioCapture').addEventListener('change', function(e) {
+        // FUNCTIE OM SCHERM WAKKER TE HOUDEN
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    document.getElementById('wakeStatus').innerText = "Schermbeveiliging: UITGESCHAKELD (Stay Awake)";
+                    document.getElementById('wakeStatus').classList.replace('text-zinc-500', 'text-green-500');
+                }
+            } catch (err) {
+                console.log("WakeLock mislukt: " + err.message);
+            }
+        }
+
+        document.getElementById('audioCapture').addEventListener('change', async function(e) {
             const file = e.target.files[0];
             if (!file) return;
+
+            // Zodra de upload begint, vragen we de Wake Lock aan
+            await requestWakeLock();
 
             document.getElementById('processing').classList.remove('hidden');
 
@@ -51,15 +65,22 @@
             reader.readAsDataURL(file);
             reader.onloadend = async () => {
                 const base64 = reader.result.split(',')[1];
+                let mimeType = file.type || "audio/mp4";
                 
                 try {
                     const response = await fetch(WEB_APP_URL, {
                         method: 'POST',
-                        body: JSON.stringify({ base64: base64 })
+                        body: JSON.stringify({ base64: base64, mimeType: mimeType })
                     });
                     const res = await response.json();
                     
                     if (res.status === "success") {
+                        // Notulen klaar? Dan mag de telefoon weer gaan slapen
+                        if (wakeLock !== null) {
+                            await wakeLock.release();
+                            wakeLock = null;
+                        }
+                        
                         document.getElementById('processing').classList.add('hidden');
                         document.getElementById('success').classList.remove('hidden');
                         document.getElementById('docLink').href = res.docUrl;
@@ -68,10 +89,17 @@
                         location.reload();
                     }
                 } catch (err) {
-                    alert("Netwerkfout. Is het bestand te groot?");
+                    alert("Netwerkfout.");
                     location.reload();
                 }
             };
+        });
+
+        // Als de gebruiker terugkomt naar de tab, opnieuw wake-lock aanvragen indien nodig
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') {
+                await requestWakeLock();
+            }
         });
     </script>
 </body>
