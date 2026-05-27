@@ -3,80 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RCS Notulist Pro</title>
+    <title>RCS Notulist Pro 6.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .pulse-btn { animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(220, 38, 38, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
-    </style>
 </head>
-<body class="bg-slate-50 min-h-screen font-sans">
+<body class="bg-gray-50 font-sans">
 
     <div id="startScreen" class="flex flex-col items-center justify-center min-h-screen p-6">
-        <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center border-b-8 border-blue-900">
-            <h1 class="text-3xl font-black text-blue-900 mb-2 italic">RCS NOTULIST</h1>
-            <p class="text-gray-400 mb-8 font-medium">VERSIE 5.0 • DOCS MODE</p>
-            <button id="startBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-6 rounded-2xl shadow-lg text-xl transition-all active:scale-95">
-                START OPNAME
-            </button>
+        <div class="bg-white p-8 rounded-3xl shadow-xl w-full max-w-sm text-center border-t-8 border-blue-900">
+            <h1 class="text-3xl font-bold text-blue-900 mb-2">🎙️ RCS PRO</h1>
+            <p class="text-gray-400 mb-8 uppercase text-xs tracking-widest">Meeting Intelligence</p>
+            <button id="startBtn" class="w-full bg-blue-700 text-white font-bold py-6 rounded-2xl shadow-lg text-xl active:scale-95 transition-all">START VERGADERING</button>
         </div>
     </div>
 
-    <div id="recordingScreen" class="hidden flex-col items-center justify-center min-h-screen p-6 bg-blue-900">
-        <div id="timer" class="text-6xl font-mono font-bold text-white mb-12">00:00</div>
-        <button id="stopBtn" class="w-48 h-48 bg-red-500 text-white font-bold rounded-full text-2xl pulse-btn shadow-2xl border-8 border-red-400/30">
-            STOP
-        </button>
-        <div id="status" class="mt-8 text-blue-200 font-medium animate-pulse">AI is aan het meeluisteren...</div>
+    <div id="recordingScreen" class="hidden flex-col items-center justify-center min-h-screen bg-blue-950 text-white p-6">
+        <div id="timer" class="text-7xl font-mono mb-12">00:00</div>
+        <button id="stopBtn" class="w-48 h-48 bg-red-600 rounded-full border-8 border-red-500/50 shadow-2xl text-2xl font-bold animate-pulse">STOP</button>
+        <div id="status" class="mt-8 text-blue-300">Marcel is aan het woord...</div>
     </div>
 
-    <div id="resultScreen" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm items-center justify-center p-4 z-50">
-        <div class="bg-white w-full max-w-md rounded-3xl p-8 shadow-2xl">
-            <div class="text-center mb-6">
-                <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">✓</div>
-                <h2 class="text-2xl font-bold text-gray-800">Notulen Verwerkt!</h2>
-                <p class="text-gray-500">De AI heeft alles opgeslagen in Google Docs.</p>
-            </div>
+    <div id="resultScreen" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md items-center justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-white w-full max-w-md rounded-3xl p-8 shadow-2xl my-auto">
+            <h2 class="text-2xl font-black text-gray-800 mb-2">Notulen Gereed!</h2>
+            <p class="text-gray-500 mb-6">Selecteer actiepunten voor Google Tasks:</p>
 
-            <div id="taskList" class="space-y-3 mb-8">
-                <p class="font-bold text-gray-700 text-sm uppercase tracking-wider">Gevonden taken:</p>
+            <div id="taskList" class="space-y-3 mb-8 max-h-60 overflow-y-auto">
                 </div>
 
-            <a id="docLink" href="#" target="_blank" class="block w-full bg-blue-600 text-white text-center font-bold py-4 rounded-xl mb-3 shadow-lg">
+            <button id="syncBtn" class="w-full bg-green-600 text-white font-bold py-4 rounded-xl mb-3 shadow-lg flex items-center justify-center gap-2">
+                <span>✓</span> SYNC NAAR GOOGLE TASKS
+            </button>
+
+            <a id="docLink" href="#" target="_blank" class="block w-full bg-blue-600 text-white text-center font-bold py-4 rounded-xl shadow-lg">
                 OPEN GOOGLE DOC
             </a>
-            <button onclick="location.reload()" class="w-full text-gray-400 font-medium py-2">Nieuwe opname</button>
+            <button onclick="location.reload()" class="w-full text-gray-400 mt-6 text-sm underline">NIEUWE OPNAME</button>
         </div>
     </div>
 
     <script>
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby1yfy3I1AGUZkrW_SbBqUcnlhjHcBy9779Dfpsa4WbMYzhbSlUdPtsZGKM8w_NRI2F3g/exec"; 
-
-        let globalStream, mediaRecorder, fullTranscript = "", isRecording = false, timerInterval, seconds = 0;
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbygHqqG67bBd6aaD8neZqzmafNaSUVjGjKx_g8ff2ODJbKw10oB8mTq1VcJxNveyDnKQw/exec"; 
+        let globalStream, mediaRecorder, fullTranscript = "", isRecording = false, timerInterval, seconds = 0, foundTasks = [];
 
         async function callGAS(action, payload) {
-            const response = await fetch(WEB_APP_URL, {
-                method: 'POST', mode: 'cors',
-                body: JSON.stringify({ action, ...payload })
-            });
-            const res = await response.json();
-            return res.data;
+            const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action, ...payload }) });
+            return (await res.json()).data;
         }
 
         async function startNewRecorder() {
             if (!isRecording) return;
             mediaRecorder = new MediaRecorder(globalStream);
-            mediaRecorder.ondataavailable = async (event) => {
+            mediaRecorder.ondataavailable = async (e) => {
                 const reader = new FileReader();
-                reader.readAsDataURL(event.data);
+                reader.readAsDataURL(e.data);
                 reader.onloadend = async () => {
-                    const base64 = reader.result.split(',')[1];
-                    const text = await callGAS("processAudio", { base64 });
+                    const text = await callGAS("processAudio", { base64: reader.result.split(',')[1] });
                     if (text) fullTranscript += text + " ";
                 };
             };
             mediaRecorder.start();
-            setTimeout(() => { if (isRecording) { mediaRecorder.stop(); startNewRecorder(); } }, 10000);
+            setTimeout(() => { if (isRecording) { mediaRecorder.stop(); startNewRecorder(); } }, 15000);
         }
 
         document.getElementById('startBtn').onclick = async () => {
@@ -87,35 +73,37 @@
             startNewRecorder();
             timerInterval = setInterval(() => {
                 seconds++;
-                const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-                const s = (seconds % 60).toString().padStart(2, '0');
-                document.getElementById('timer').textContent = `${m}:${s}`;
+                document.getElementById('timer').textContent = `${Math.floor(seconds/60).toString().padStart(2,'0')}:${(seconds%60).toString().padStart(2,'0')}`;
             }, 1000);
         };
 
         document.getElementById('stopBtn').onclick = async () => {
-            isRecording = false;
-            clearInterval(timerInterval);
-            document.getElementById('status').textContent = "Eindverslag genereren... even geduld.";
-            document.getElementById('stopBtn').disabled = true;
-            document.getElementById('stopBtn').classList.remove('pulse-btn');
-
+            isRecording = false; clearInterval(timerInterval);
+            document.getElementById('status').textContent = "Google Doc wordt opgemaakt...";
             const result = await callGAS("finalize", { transcript: fullTranscript });
             
-            if (result && result.docUrl) {
+            if (result) {
                 document.getElementById('docLink').href = result.docUrl;
+                foundTasks = result.tasks;
                 const taskDiv = document.getElementById('taskList');
-                result.tasks.forEach(taak => {
-                    const item = document.createElement('div');
-                    item.className = "flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100";
-                    item.innerHTML = `<input type="checkbox" class="w-5 h-5 rounded text-blue-600"> <span class="text-gray-700 text-sm">${taak}</span>`;
+                foundTasks.forEach((t, i) => {
+                    const item = document.createElement('label');
+                    item.className = "flex items-center p-3 bg-gray-50 rounded-xl border border-gray-100 cursor-pointer";
+                    item.innerHTML = `<input type="checkbox" checked value="${i}" class="w-6 h-6 mr-3 rounded text-blue-600"> <span class="text-sm font-medium">${t}</span>`;
                     taskDiv.appendChild(item);
                 });
                 document.getElementById('resultScreen').classList.replace('hidden', 'flex');
-            } else {
-                alert("Er ging iets mis of er was geen tekst.");
-                location.reload();
             }
+        };
+
+        document.getElementById('syncBtn').onclick = async () => {
+            const selectedIdx = Array.from(document.querySelectorAll('#taskList input:checked')).map(cb => cb.value);
+            const selectedTasks = selectedIdx.map(i => foundTasks[i]);
+            document.getElementById('syncBtn').textContent = "Synchroniseren...";
+            const res = await callGAS("syncTasks", { tasks: selectedTasks });
+            alert(res);
+            document.getElementById('syncBtn').textContent = "SYNC VOLTOOID!";
+            document.getElementById('syncBtn').classList.replace('bg-green-600', 'bg-gray-400');
         };
     </script>
 </body>
