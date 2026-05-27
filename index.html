@@ -3,95 +3,197 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RCS Master V11.1</title>
+    <title>RCS Master V11.2 - Stable</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .visualizer-bar { transition: height 0.1s ease; }
+        .pulse-red { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(220, 38, 38, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
+        body { background-color: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
+    </style>
 </head>
-<body class="bg-black text-white flex flex-col h-screen p-6 overflow-hidden">
+<body class="flex flex-col h-screen items-center justify-between p-6">
 
-    <div class="text-center">
-        <h1 class="text-blue-500 font-black tracking-tighter text-2xl">RCS INTELLIGENCE</h1>
-        <div id="timer" class="text-6xl font-mono mt-4">00:00</div>
+    <div class="text-center mt-4">
+        <h1 class="text-xl font-black tracking-[0.2em] text-blue-500">RCS INTELLIGENCE</h1>
+        <div id="timer" class="text-6xl font-mono mt-2 text-white">00:00</div>
     </div>
 
-    <div id="livePreview" class="flex-grow my-8 bg-zinc-900 border border-zinc-800 p-6 rounded-3xl overflow-y-auto text-zinc-400 italic text-lg shadow-inner">
-        Wacht op spraak... (Begin met praten)
+    <div id="livePreview" class="w-full bg-zinc-900/80 border border-zinc-800 p-6 rounded-[2rem] h-48 overflow-y-auto text-lg text-zinc-300 italic shadow-2xl">
+        Wacht op spraak...
     </div>
 
-    <div class="flex flex-col items-center gap-8 mb-10">
-        <button id="mainBtn" class="w-40 h-40 bg-red-600 rounded-full flex items-center justify-center text-xl font-black shadow-[0_0_50px_rgba(220,38,38,0.3)] active:scale-95 transition-all">START</button>
-        <button id="pauseBtn" class="hidden w-full max-w-xs bg-zinc-800 py-4 rounded-2xl font-bold border border-zinc-700">PAUZE</button>
+    <div id="visualizer" class="flex items-end justify-center gap-1.5 h-16"></div>
+
+    <div class="flex flex-col items-center gap-6 w-full mb-8">
+        <button id="mainBtn" class="w-44 h-44 bg-red-600 rounded-full flex items-center justify-center text-2xl font-black shadow-2xl active:scale-90 transition-all">START</button>
+        <button id="pauseBtn" class="hidden w-full max-w-xs bg-zinc-800 py-5 rounded-2xl font-bold border border-zinc-700 text-lg">PAUZE</button>
     </div>
 
-    <div id="resultModal" class="hidden fixed inset-0 bg-black/95 flex flex-col items-center justify-center p-6 z-50">
-        <div class="bg-white text-black w-full max-w-md rounded-[3rem] p-10">
-            <h2 class="text-3xl font-black mb-6">Klaar!</h2>
-            <div id="taskList" class="space-y-3 mb-8 max-h-40 overflow-y-auto border-y py-4"></div>
-            <button id="syncBtn" class="w-full bg-green-600 text-white font-bold py-4 rounded-xl mb-3">SYNC TASKS</button>
-            <a id="docLink" href="#" target="_blank" class="block w-full bg-blue-600 text-white text-center font-bold py-4 rounded-xl">OPEN DOCUMENT</a>
-            <button onclick="location.reload()" class="w-full mt-8 text-gray-400 font-bold text-xs uppercase tracking-widest">Opnieuw</button>
+    <div id="resultModal" class="hidden fixed inset-0 bg-black/98 backdrop-blur-xl z-50 p-6 flex flex-col items-center justify-center">
+        <div class="bg-white text-black w-full max-w-md rounded-[3rem] p-10 shadow-2xl">
+            <h2 class="text-3xl font-black mb-2">Gereed!</h2>
+            <p class="text-gray-500 text-sm mb-6">De notulen zijn opgeslagen in de Drive map.</p>
+            <div id="taskList" class="space-y-3 mb-8 max-h-48 overflow-y-auto border-y py-4"></div>
+            <button id="syncBtn" class="w-full bg-green-600 text-white font-bold py-5 rounded-2xl mb-4 text-lg">SYNC NAAR GOOGLE TASKS</button>
+            <a id="docLink" href="#" target="_blank" class="block w-full bg-blue-600 text-white text-center font-bold py-5 rounded-2xl text-lg">OPEN GOOGLE DOC</a>
+            <button onclick="location.reload()" class="w-full mt-8 text-gray-400 text-xs font-bold uppercase tracking-widest">Nieuwe opname</button>
         </div>
     </div>
 
     <script>
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzGk8ssTr3vLp-Vg8DUtBpas0Y3_P0LDPHHlblDvPLxc8F0ssuJ4QOwUQTN5n1wFQL7aA/exec"; 
-        let isRecording = false, isPaused = false, seconds = 0, timerInterval, wakeLock = null, globalStream, mediaRecorder, fullTranscript = "";
+        // --- CONFIGURATIE ---
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwDf78Fq1r77Pp6bV8mKI6DL76Gq87jK_S3Q0awibDYYbiGQS7qb3jYkP_lRhwDVcQCKw/exec"; 
+        // --------------------
 
-        async function startChunk() {
-            if (!isRecording || isPaused) return;
-            mediaRecorder = new MediaRecorder(globalStream);
-            mediaRecorder.ondataavailable = async (e) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(e.data);
-                reader.onloadend = async () => {
-                    try {
-                        const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "processAudio", base64: reader.result.split(',')[1] }) });
-                        const json = await res.json();
-                        if (json.data) {
-                            fullTranscript += json.data + " ";
-                            document.getElementById('livePreview').innerText = fullTranscript;
-                            document.getElementById('livePreview').scrollTop = document.getElementById('livePreview').scrollHeight;
-                        }
-                    } catch(e) {}
-                };
-            };
-            mediaRecorder.start();
-            setTimeout(() => { if (isRecording && !isPaused) { mediaRecorder.stop(); startChunk(); } }, 5000);
+        let isRecording = false, isPaused = false, seconds = 0, timerInterval, wakeLock = null, globalStream, mediaRecorder, fullTranscript = "", audioCtx, source, analyzer;
+
+        const mainBtn = document.getElementById('mainBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const livePreview = document.getElementById('livePreview');
+        const visualizer = document.getElementById('visualizer');
+
+        // Maak bars voor visualizer
+        for(let i=0; i<25; i++) {
+            const bar = document.createElement('div');
+            bar.className = "visualizer-bar w-1.5 bg-blue-500 rounded-full";
+            bar.style.height = "4px";
+            visualizer.appendChild(bar);
         }
 
-        document.getElementById('mainBtn').onclick = async () => {
+        async function startChunkRecorder() {
+            if (!isRecording || isPaused) return;
+
+            // Zoek ondersteund formaat (fix voor iPhone)
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+            mediaRecorder = new MediaRecorder(globalStream, { mimeType });
+
+            mediaRecorder.ondataavailable = async (e) => {
+                if (e.data.size > 0) {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(e.data);
+                    reader.onloadend = async () => {
+                        try {
+                            const response = await fetch(WEB_APP_URL, { 
+                                method: 'POST', 
+                                body: JSON.stringify({ action: "processAudio", base64: reader.result.split(',')[1] }) 
+                            });
+                            const result = await response.json();
+                            if (result.status === "success" && result.data) {
+                                fullTranscript += result.data + " ";
+                                livePreview.innerText = fullTranscript;
+                                livePreview.scrollTop = livePreview.scrollHeight;
+                            }
+                        } catch(err) {
+                            console.error("Audio chunk upload failed");
+                        }
+                    };
+                }
+            };
+
+            mediaRecorder.start();
+            setTimeout(() => { if (isRecording && !isPaused) { mediaRecorder.stop(); startChunkRecorder(); } }, 6000);
+        }
+
+        mainBtn.onclick = async () => {
             if (!isRecording) {
-                globalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                isRecording = true;
-                document.getElementById('mainBtn').textContent = "STOP";
-                document.getElementById('pauseBtn').classList.remove('hidden');
-                if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
-                startChunk();
-                timerInterval = setInterval(() => { if(!isPaused) { seconds++; document.getElementById('timer').textContent = new Date(seconds * 1000).toISOString().substr(14, 5); } }, 1000);
+                try {
+                    globalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    isRecording = true;
+                    mainBtn.textContent = "STOP";
+                    mainBtn.classList.add('pulse-red');
+                    pauseBtn.classList.remove('hidden');
+                    if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+                    
+                    startChunkRecorder();
+                    startVisualizer();
+                    
+                    timerInterval = setInterval(() => {
+                        if(!isPaused) {
+                            seconds++;
+                            const m = Math.floor(seconds/60).toString().padStart(2,'0');
+                            const s = (seconds%60).toString().padStart(2,'0');
+                            document.getElementById('timer').textContent = `${m}:${s}`;
+                        }
+                    }, 1000);
+                } catch (e) {
+                    alert("Microfoon toegang geweigerd of niet gevonden.");
+                }
             } else {
+                // FINALIZE
                 isRecording = false;
-                clearInterval(timerInterval);
-                document.getElementById('mainBtn').textContent = "...";
-                document.getElementById('mainBtn').disabled = true;
+                mainBtn.textContent = "...";
+                mainBtn.disabled = true;
+                mainBtn.classList.remove('pulse-red');
                 
-                const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "finalize", transcript: fullTranscript }) });
-                const json = await res.json();
-                if (json.status === "success") {
-                    document.getElementById('docLink').href = json.data.docUrl;
-                    json.data.tasks.forEach(t => {
-                        document.getElementById('taskList').innerHTML += `<div class="flex items-center gap-3 font-bold text-sm border-b pb-2"><input type="checkbox" checked> ${t}</div>`;
+                try {
+                    const response = await fetch(WEB_APP_URL, { 
+                        method: 'POST', 
+                        body: JSON.stringify({ action: "finalize", transcript: fullTranscript }) 
                     });
-                    document.getElementById('resultModal').classList.replace('hidden', 'flex');
-                } else {
-                    alert("Fout: " + json.data);
+                    const result = await response.json();
+                    
+                    if (result.status === "success") {
+                        showModal(result.data);
+                    } else {
+                        alert("Fout bij verwerken: " + result.data);
+                        location.reload();
+                    }
+                } catch (e) {
+                    alert("Server onbereikbaar. Controleer je URL en internet.");
+                    location.reload();
                 }
             }
         };
 
-        document.getElementById('pauseBtn').onclick = () => {
+        pauseBtn.onclick = () => {
             isPaused = !isPaused;
-            document.getElementById('pauseBtn').textContent = isPaused ? "GA DOOR" : "PAUZE";
-            if (!isPaused) startChunk();
+            pauseBtn.textContent = isPaused ? "GA DOOR" : "PAUZE";
+            pauseBtn.classList.toggle('bg-orange-600');
+            if (!isPaused) startChunkRecorder();
+            else if(mediaRecorder) mediaRecorder.stop();
         };
+
+        function startVisualizer() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            source = audioCtx.createMediaStreamSource(globalStream);
+            analyzer = audioCtx.createAnalyser();
+            source.connect(analyzer);
+            const data = new Uint8Array(analyzer.frequencyBinCount);
+            const bars = document.querySelectorAll('.visualizer-bar');
+
+            function draw() {
+                if(!isRecording) return;
+                requestAnimationFrame(draw);
+                if(isPaused) {
+                    bars.forEach(b => b.style.height = "4px");
+                    return;
+                }
+                analyzer.getByteFrequencyData(data);
+                bars.forEach((bar, i) => {
+                    const val = data[i * 4] / 2.5;
+                    bar.style.height = Math.max(4, val) + "px";
+                });
+            }
+            draw();
+        }
+
+        function showModal(data) {
+            document.getElementById('docLink').href = data.docUrl;
+            const list = document.getElementById('taskList');
+            list.innerHTML = "";
+            data.tasks.forEach(t => {
+                list.innerHTML += `<div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border font-bold text-sm text-gray-700"><input type="checkbox" checked class="w-5 h-5"> ${t}</div>`;
+            });
+            document.getElementById('resultModal').classList.remove('hidden');
+            
+            document.getElementById('syncBtn').onclick = async () => {
+                document.getElementById('syncBtn').innerText = "BEZIG...";
+                await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "syncTasks", tasks: data.tasks }) });
+                document.getElementById('syncBtn').innerText = "✓ GESYNCED";
+                document.getElementById('syncBtn').disabled = true;
+            };
+        }
     </script>
 </body>
 </html>
