@@ -3,146 +3,168 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RCS Pro V8.1</title>
+    <title>RCS Master V11</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        .visualizer-bar { transition: height 0.05s ease; }
         .pulse-red { animation: pulse 1.5s infinite; }
-        @keyframes pulse { 
-            0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); transform: scale(1); }
-            70% { box-shadow: 0 0 0 40px rgba(220, 38, 38, 0); transform: scale(1.05); }
-            100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); transform: scale(1); }
-        }
-        body { background-color: #f8fafc; touch-action: manipulation; }
-        .recording-bg { background-color: #000000 !important; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); } 70% { box-shadow: 0 0 0 30px rgba(220, 38, 38, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
+        body { background-color: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
     </style>
 </head>
-<body>
+<body class="flex flex-col h-screen items-center justify-between p-6">
 
-    <div id="startScreen" class="flex flex-col items-center justify-center min-h-screen p-6">
-        <div class="bg-white p-10 rounded-[40px] shadow-2xl w-full max-w-sm text-center border-b-[12px] border-blue-900">
-            <h1 class="text-4xl font-black text-blue-900 mb-2 italic">RCS PRO</h1>
-            <p class="text-gray-400 mb-10 font-bold tracking-widest text-xs">VERSIE 8.1 - ANTI-SLEEP</p>
-            <button id="startBtn" class="w-full bg-blue-600 text-white font-black py-8 rounded-3xl shadow-xl text-2xl active:scale-95 transition-all">
-                START OPNAME
-            </button>
+    <div id="header" class="text-center mt-4">
+        <h1 class="text-2xl font-black tracking-widest text-blue-500">RCS MASTER V11</h1>
+        <div id="timer" class="text-5xl font-mono mt-2">00:00</div>
+    </div>
+
+    <div id="livePreview" class="w-full bg-zinc-900/50 border border-zinc-800 p-4 rounded-2xl h-32 overflow-y-auto text-sm text-zinc-400 italic mb-4">
+        Wacht op spraak...
+    </div>
+
+    <div id="visualizer" class="flex items-end justify-center gap-1 h-20 mb-8">
         </div>
+
+    <div class="relative">
+        <button id="mainBtn" class="w-48 h-48 bg-red-600 rounded-full flex items-center justify-center text-2xl font-black shadow-2xl z-10 relative">START</button>
+        <div id="pulseRing" class="absolute inset-0 rounded-full border-4 border-red-600 hidden"></div>
     </div>
 
-    <div id="recordingScreen" class="hidden flex-col items-center justify-center min-h-screen recording-bg text-white p-6">
-        <div id="timer" class="text-8xl font-mono font-bold mb-20 tracking-tighter text-red-600">00:00</div>
-        <button id="stopBtn" class="w-64 h-64 bg-red-600 rounded-full pulse-red flex items-center justify-center text-4xl font-black shadow-2xl border-[12px] border-red-500/20">
-            STOP
-        </button>
-        <div class="mt-20 text-gray-500 font-bold tracking-widest animate-pulse">TELEFOON BLIJFT WAKKER</div>
+    <div class="flex gap-4 w-full max-w-sm mb-10">
+        <button id="pauseBtn" class="flex-1 bg-zinc-800 py-4 rounded-2xl font-bold border border-zinc-700 hidden">PAUZE</button>
     </div>
 
-    <div id="resultScreen" class="hidden fixed inset-0 bg-black/90 backdrop-blur-xl items-center justify-center p-4 z-50 overflow-y-auto">
-        <div class="bg-white w-full max-w-md rounded-[40px] p-8 shadow-2xl my-auto">
-            <h2 class="text-3xl font-black text-gray-900 mb-2">Gereed!</h2>
-            <div id="taskList" class="space-y-4 mb-10 max-h-64 overflow-y-auto pr-2 mt-4"></div>
-            <button id="syncBtn" class="w-full bg-green-600 text-white font-bold py-5 rounded-2xl mb-4 shadow-lg flex items-center justify-center gap-3">
-                SYNC NAAR TASKS
-            </button>
-            <a id="docLink" href="#" target="_blank" class="block w-full bg-blue-600 text-white text-center font-bold py-5 rounded-2xl shadow-lg">
-                OPEN GOOGLE DOC
-            </a>
-            <button onclick="location.reload()" class="w-full text-gray-400 mt-8 font-bold text-sm uppercase tracking-widest">Nieuwe sessie</button>
+    <div id="resultModal" class="hidden fixed inset-0 bg-black/95 backdrop-blur-md z-50 p-6 flex-col items-center justify-center">
+        <div class="bg-white text-black w-full max-w-md rounded-[3rem] p-8 shadow-2xl">
+            <h2 class="text-2xl font-black mb-4">Verwerking voltooid</h2>
+            <div id="taskList" class="space-y-2 mb-6 max-h-40 overflow-y-auto border-y py-4"></div>
+            <input id="emailInput" type="email" placeholder="E-mail adres voor notulen" class="w-full border p-4 rounded-xl mb-4 text-sm" value="m.heinemans@roercollege.nl">
+            <div class="grid grid-cols-2 gap-2">
+                <button id="syncBtn" class="bg-green-600 text-white font-bold py-4 rounded-xl text-xs">SYNC TASKS</button>
+                <button id="mailBtn" class="bg-orange-500 text-white font-bold py-4 rounded-xl text-xs">MAIL DOC</button>
+            </div>
+            <a id="docLink" href="#" target="_blank" class="block w-full bg-blue-600 text-white text-center font-bold py-4 rounded-xl mt-4">OPEN DOC</a>
+            <button onclick="location.reload()" class="w-full mt-6 text-gray-400 text-xs font-bold tracking-widest uppercase">Sluiten</button>
         </div>
     </div>
 
     <script>
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyJDNTy7HbVi4HPyTdUnd5Hw-bBGMZ_rOuo8K0xjrAP-uVVU0qKqJKnCjnVWwAIF3PuFg/exec"; 
-        let globalStream, mediaRecorder, fullTranscript = "", isRecording = false, timerInterval, seconds = 0, foundTasks = [], wakeLock = null;
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzLaVEGprPrgvb7tgCSNG5qtc64Bfw5mdfhkkR1WksjJC9r8202LoIvb0cf8ctk5Ii99g/exec"; 
+        let isRecording = false, isPaused = false, seconds = 0, timerInterval, wakeLock = null, globalStream, mediaRecorder, fullTranscript = "";
 
-        // Anti-Sleep truuk voor mobiel
-        async function keepAwake() {
-            try {
-                if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
-            } catch (err) {}
-            // Blijf elke 10 seconden vragen om het scherm wakker te houden
-            setInterval(async () => {
-                if (isRecording && wakeLock === null && 'wakeLock' in navigator) {
-                    try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
-                }
-            }, 10000);
-        }
+        // UI Helpers
+        const mainBtn = document.getElementById('mainBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const pulseRing = document.getElementById('pulseRing');
+        const livePreview = document.getElementById('livePreview');
 
-        // Als de pagina even weggaat (bijv. notificatie), herstel wakelock
-        document.addEventListener('visibilitychange', async () => {
-            if (wakeLock !== null && document.visibilityState === 'visible' && isRecording) {
-                keepAwake();
-            }
-        });
-
-        async function callGAS(action, payload) {
-            const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action, ...payload }) });
-            return (await res.json()).data;
+        // Visualizer Setup
+        const visualizer = document.getElementById('visualizer');
+        for(let i=0; i<20; i++) {
+            const bar = document.createElement('div');
+            bar.className = "visualizer-bar w-2 bg-blue-500 rounded-full";
+            bar.style.height = "4px";
+            visualizer.appendChild(bar);
         }
 
         async function startRecording() {
-            if (!isRecording) return;
+            if (!isRecording || isPaused) return;
             mediaRecorder = new MediaRecorder(globalStream);
             mediaRecorder.ondataavailable = async (e) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(e.data);
-                reader.onloadend = async () => {
-                    const text = await callGAS("processAudio", { base64: reader.result.split(',')[1] });
-                    if (text) fullTranscript += text + " ";
-                };
+                if (e.data.size > 0) {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(e.data);
+                    reader.onloadend = async () => {
+                        try {
+                            const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "processAudio", base64: reader.result.split(',')[1] }) });
+                            const text = (await res.json()).data;
+                            if (text) {
+                                fullTranscript += text + " ";
+                                livePreview.innerText = fullTranscript;
+                                livePreview.scrollTop = livePreview.scrollHeight;
+                            }
+                        } catch(err) { console.log("Retry in next chunk..."); }
+                    };
+                }
             };
             mediaRecorder.start();
-            setTimeout(() => { if (isRecording) { mediaRecorder.stop(); startRecording(); } }, 10000);
+            setTimeout(() => { if (isRecording && !isPaused) { mediaRecorder.stop(); startRecording(); } }, 6000);
         }
 
-        document.getElementById('startBtn').onclick = async () => {
-            globalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            isRecording = true;
-            keepAwake();
-            
-            document.body.classList.add('recording-bg');
-            document.getElementById('startScreen').classList.add('hidden');
-            document.getElementById('recordingScreen').classList.replace('hidden', 'flex');
-            
-            startRecording();
-            timerInterval = setInterval(() => {
-                seconds++;
-                const m = Math.floor(seconds/60).toString().padStart(2,'0');
-                const s = (seconds%60).toString().padStart(2,'0');
-                document.getElementById('timer').textContent = `${m}:${s}`;
-            }, 1000);
-        };
-
-        document.getElementById('stopBtn').onclick = async () => {
-            isRecording = false;
-            if(wakeLock) wakeLock.release();
-            clearInterval(timerInterval);
-            document.getElementById('stopBtn').disabled = true;
-            document.getElementById('stopBtn').textContent = "...";
-            const result = await callGAS("finalize", { transcript: fullTranscript });
-            
-            if (result) {
-                document.getElementById('docLink').href = result.docUrl;
-                foundTasks = result.tasks;
-                const taskDiv = document.getElementById('taskList');
-                foundTasks.forEach((t, i) => {
-                    const item = document.createElement('label');
-                    item.className = "flex items-center p-4 bg-gray-50 rounded-2xl border-2 border-gray-100 cursor-pointer active:bg-blue-50";
-                    item.innerHTML = `<input type="checkbox" checked value="${i}" class="w-7 h-7 mr-4 rounded-full text-blue-600 border-2"> <span class="text-sm font-bold text-gray-700">${t}</span>`;
-                    taskDiv.appendChild(item);
-                });
-                document.getElementById('resultScreen').classList.replace('hidden', 'flex');
+        mainBtn.onclick = async () => {
+            if (!isRecording) {
+                // START
+                globalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                isRecording = true;
+                mainBtn.textContent = "STOP";
+                mainBtn.classList.add('pulse-red');
+                pauseBtn.classList.remove('hidden');
+                if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+                startRecording();
+                timerInterval = setInterval(() => {
+                    if(!isPaused) {
+                        seconds++;
+                        document.getElementById('timer').textContent = new Date(seconds * 1000).toISOString().substr(14, 5);
+                    }
+                }, 1000);
+                startVisualizer(globalStream);
+            } else {
+                // FINALIZE
+                isRecording = false;
+                mainBtn.textContent = "...";
+                mainBtn.disabled = true;
+                const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "finalize", transcript: fullTranscript }) });
+                const result = (await res.json()).data;
+                showResult(result);
             }
         };
 
-        document.getElementById('syncBtn').onclick = async () => {
-            const selectedIdx = Array.from(document.querySelectorAll('#taskList input:checked')).map(cb => cb.value);
-            const selectedTasks = selectedIdx.map(i => foundTasks[i]);
-            document.getElementById('syncBtn').textContent = "BEZIG...";
-            const response = await callGAS("syncTasks", { tasks: selectedTasks });
-            alert(response); // Laat de bevestiging of error direct zien
-            document.getElementById('syncBtn').textContent = "✓ SYNC VOLTOOID";
-            document.getElementById('syncBtn').classList.replace('bg-green-600', 'bg-gray-400');
+        pauseBtn.onclick = () => {
+            isPaused = !isPaused;
+            pauseBtn.textContent = isPaused ? "GA DOOR" : "PAUZE";
+            pauseBtn.classList.toggle('bg-orange-600');
+            if (!isPaused) startRecording();
         };
+
+        function showResult(result) {
+            document.getElementById('docLink').href = result.docUrl;
+            const list = document.getElementById('taskList');
+            result.tasks.forEach(t => {
+                list.innerHTML += `<label class="flex items-center text-sm font-bold gap-3 bg-gray-50 p-3 rounded-xl border"><input type="checkbox" checked class="w-5 h-5"> ${t}</label>`;
+            });
+            document.getElementById('resultModal').classList.replace('hidden', 'flex');
+            
+            document.getElementById('syncBtn').onclick = async () => {
+                await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "syncTasks", tasks: result.tasks }) });
+                alert("Taken gesynced!");
+            };
+            
+            document.getElementById('mailBtn').onclick = async () => {
+                const email = document.getElementById('emailInput').value;
+                await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "sendEmail", url: result.docUrl, email: email }) });
+                alert("Mail verstuurd!");
+            };
+        }
+
+        function startVisualizer(stream) {
+            const context = new AudioContext();
+            const src = context.createMediaStreamSource(stream);
+            const analyzer = context.createAnalyser();
+            src.connect(analyzer);
+            const data = new Uint8Array(analyzer.frequencyBinCount);
+            const bars = document.querySelectorAll('.visualizer-bar');
+            function loop() {
+                if(!isRecording) return;
+                requestAnimationFrame(loop);
+                analyzer.getByteFrequencyData(data);
+                bars.forEach((bar, i) => {
+                    const val = data[i * 5] / 2;
+                    bar.style.height = Math.max(4, val) + "px";
+                });
+            }
+            loop();
+        }
     </script>
 </body>
 </html>
