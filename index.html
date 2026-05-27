@@ -3,127 +3,148 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RCS DEBUG V11.3</title>
+    <title>RCS Notulist V12</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .pulse-red { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(220, 38, 38, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
+    </style>
 </head>
-<body class="bg-slate-900 text-white p-6 flex flex-col h-screen font-sans">
+<body class="bg-black text-white p-6 flex flex-col h-screen font-sans overflow-hidden">
 
-    <div class="text-center mb-4">
-        <h1 class="text-blue-400 font-bold">RCS SYSTEM CHECK</h1>
-        <div id="timer" class="text-4xl font-mono">00:00</div>
+    <div class="text-center mt-2 mb-4">
+        <h1 class="text-blue-500 font-black tracking-widest text-xl">RCS INTELLIGENCE</h1>
+        <div id="timer" class="text-5xl font-mono mt-2">00:00</div>
     </div>
 
-    <div id="livePreview" class="flex-grow bg-slate-800 rounded-2xl p-4 mb-4 overflow-y-auto text-sm border border-slate-700 shadow-inner">
-        Wacht op eerste 6 seconden...
+    <div id="livePreview" class="flex-grow bg-zinc-900 border border-zinc-700 rounded-3xl p-6 mb-8 overflow-y-auto text-lg text-zinc-300 italic shadow-inner">
+        Druk op start en begin met spreken. De tekst verschijnt direct...
     </div>
 
-    <div id="viz" class="flex items-end justify-center gap-1 h-12 mb-6"></div>
-
-    <div id="errorLog" class="text-[10px] text-red-400 font-mono mb-4 h-10 overflow-hidden bg-black/20 p-2 rounded">
-        Systeem status: OK
+    <div class="flex flex-col items-center gap-6 mb-10 w-full">
+        <button id="mainBtn" class="w-40 h-40 bg-red-600 rounded-full flex items-center justify-center text-xl font-black shadow-2xl transition-all">START</button>
+        <button id="pauseBtn" class="hidden w-full max-w-xs bg-zinc-800 py-4 rounded-2xl font-bold border border-zinc-700">PAUZE</button>
     </div>
 
-    <div class="flex flex-col gap-4">
-        <button id="mainBtn" class="w-full bg-blue-600 py-6 rounded-2xl font-black text-xl shadow-lg active:bg-blue-700">START OPNAME</button>
-        <button id="pauseBtn" class="hidden w-full bg-slate-700 py-4 rounded-2xl font-bold">PAUZE</button>
-    </div>
-
-    <div id="modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center p-6 z-50">
-        <div class="bg-white text-black p-8 rounded-[2rem] w-full max-w-sm text-center">
-            <h2 class="text-2xl font-bold mb-4">Klaar!</h2>
-            <a id="docLink" href="#" target="_blank" class="block w-full bg-blue-600 text-white py-4 rounded-xl font-bold">OPEN DOC</a>
-            <button onclick="location.reload()" class="mt-6 text-gray-400 text-xs uppercase font-bold">Opnieuw</button>
+    <div id="modal" class="hidden fixed inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center p-6 z-50">
+        <div class="bg-white text-black p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl">
+            <h2 class="text-3xl font-black mb-2">Gereed!</h2>
+            <div id="taskList" class="my-6 space-y-2 max-h-40 overflow-y-auto"></div>
+            <button id="syncBtn" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold mb-3">SYNC TASKS</button>
+            <a id="docLink" href="#" target="_blank" class="block w-full bg-blue-600 text-white text-center py-4 rounded-xl font-bold">OPEN DOCUMENT</a>
+            <button onclick="location.reload()" class="mt-6 w-full text-gray-400 text-xs uppercase font-bold tracking-widest">Nieuwe sessie</button>
         </div>
     </div>
 
     <script>
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwM3miFqYLvsk5_jqF3Z3bR7yaTPnf2E70ISjwktW5LXxpncrkElMLgBSEnm9xP8mZNtw/exec"; // VERGEET DEZE NIET!
-        let isRecording = false, isPaused = false, seconds = 0, timer, fullTranscript = "", stream, recorder;
-
-        const log = (msg) => { document.getElementById('errorLog').innerText = "LOG: " + msg; };
-
-        async function recordChunk() {
-            if (!isRecording || isPaused) return;
-            
-            // Probeer specifiek audio/webm voor Android of audio/mp4 voor iPhone
-            const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-            recorder = new MediaRecorder(stream, { mimeType: mime });
-
-            recorder.ondataavailable = async (e) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(e.data);
-                reader.onloadend = async () => {
-                    const base64 = reader.result.split(',')[1];
-                    try {
-                        log("Stukje audio versturen...");
-                        const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "processAudio", base64: base64 }) });
-                        const json = await res.json();
-                        if (json.status === "success" && json.data) {
-                            fullTranscript += json.data + " ";
-                            document.getElementById('livePreview').innerText = fullTranscript;
-                            log("Tekst ontvangen!");
-                        } else {
-                            log("Geen tekst uit audio (stilte?)");
-                        }
-                    } catch(err) {
-                        log("VERBINDINGSFOUT: " + err.message);
-                    }
-                };
-            };
-            recorder.start();
-            setTimeout(() => { if (isRecording && !isPaused) { recorder.stop(); recordChunk(); } }, 6000);
+        // --- VUL HIER JE NIEUWE APP URL IN ---
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbytxKyTUQBAxFUII-A-3c0Iuo7ncEylDsH5XBz0H5Pt-8IGHvcz8VE8Bx6O544dr1rJTQ/exec"; 
+        
+        let isRecording = false, isPaused = false, seconds = 0, timerInterval;
+        let finalTranscript = "";
+        
+        // Activeer de native spraakherkenner van je telefoon/browser
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert("Je browser ondersteunt geen directe spraakherkenning. Gebruik Safari of Chrome.");
         }
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'nl-NL'; // Nederlandse herkenning (AI lost dialect later op)
 
-        document.getElementById('mainBtn').onclick = async () => {
-            if (!isRecording) {
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    isRecording = true;
-                    document.getElementById('mainBtn').innerText = "STOP EN MAAK NOTULEN";
-                    document.getElementById('mainBtn').classList.replace('bg-blue-600', 'bg-red-600');
-                    document.getElementById('pauseBtn').classList.remove('hidden');
-                    recordChunk();
-                    startViz();
-                    timer = setInterval(() => { if(!isPaused) { seconds++; document.getElementById('timer').innerText = new Date(seconds*1000).toISOString().substr(14, 5); } }, 1000);
-                } catch(e) { alert("Mic error: " + e); }
-            } else {
-                isRecording = false;
-                document.getElementById('mainBtn').innerText = "VERWERKEN...";
-                const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "finalize", transcript: fullTranscript }) });
-                const json = await res.json();
-                if (json.status === "success") {
-                    document.getElementById('docLink').href = json.data.docUrl;
-                    document.getElementById('modal').classList.remove('hidden');
+        const mainBtn = document.getElementById('mainBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const preview = document.getElementById('livePreview');
+
+        recognition.onresult = (event) => {
+            if (isPaused) return;
+            let interimTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript + " ";
                 } else {
-                    alert("Fout: " + json.data);
-                    location.reload();
+                    interimTranscript += event.results[i][0].transcript;
+                }
+            }
+            preview.innerHTML = `<span class="text-white">${finalTranscript}</span><span class="text-zinc-500">${interimTranscript}</span>`;
+            preview.scrollTop = preview.scrollHeight;
+        };
+
+        // Zorg dat hij blijft luisteren, ook als je even stil bent
+        recognition.onend = () => {
+            if (isRecording && !isPaused) recognition.start();
+        };
+
+        mainBtn.onclick = async () => {
+            if (!isRecording) {
+                // START
+                isRecording = true;
+                finalTranscript = "";
+                preview.innerText = "";
+                recognition.start();
+                
+                mainBtn.innerText = "STOP";
+                mainBtn.classList.add('pulse-red');
+                pauseBtn.classList.remove('hidden');
+                
+                timerInterval = setInterval(() => {
+                    if(!isPaused) {
+                        seconds++;
+                        document.getElementById('timer').innerText = new Date(seconds * 1000).toISOString().substr(14, 5);
+                    }
+                }, 1000);
+            } else {
+                // STOP EN VERWERK
+                isRecording = false;
+                recognition.stop();
+                clearInterval(timerInterval); // De timer stopt nu echt!
+                
+                mainBtn.innerText = "...";
+                mainBtn.disabled = true;
+                mainBtn.classList.remove('pulse-red');
+                
+                try {
+                    const res = await fetch(WEB_APP_URL, { 
+                        method: 'POST', 
+                        body: JSON.stringify({ action: "finalize", transcript: finalTranscript }) 
+                    });
+                    const json = await res.json();
+                    
+                    if (json.status === "success") {
+                        document.getElementById('docLink').href = json.data.docUrl;
+                        const taskList = document.getElementById('taskList');
+                        json.data.tasks.forEach(t => {
+                            taskList.innerHTML += `<div class="flex items-center gap-3 font-bold text-sm bg-gray-50 p-3 rounded-xl border mb-2"><input type="checkbox" checked> ${t}</div>`;
+                        });
+                        document.getElementById('modal').classList.remove('hidden');
+                        
+                        document.getElementById('syncBtn').onclick = async () => {
+                            document.getElementById('syncBtn').innerText = "BEZIG...";
+                            await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "syncTasks", tasks: json.data.tasks }) });
+                            document.getElementById('syncBtn').innerText = "✓ GESYNCED";
+                        };
+                    } else {
+                        alert("Fout bij opslaan: " + json.data);
+                    }
+                } catch(e) {
+                    alert("Netwerkfout bij het maken van het document.");
                 }
             }
         };
 
-        document.getElementById('pauseBtn').onclick = () => {
+        pauseBtn.onclick = () => {
             isPaused = !isPaused;
-            document.getElementById('pauseBtn').innerText = isPaused ? "GA DOOR" : "PAUZE";
-            if (!isPaused) recordChunk();
-        };
-
-        function startViz() {
-            const ctx = new AudioContext();
-            const src = ctx.createMediaStreamSource(stream);
-            const ana = ctx.createAnalyser();
-            src.connect(ana);
-            const data = new Uint8Array(ana.frequencyBinCount);
-            const container = document.getElementById('viz');
-            for(let i=0; i<15; i++) container.innerHTML += '<div class="w-1.5 bg-blue-400 rounded-full h-1"></div>';
-            const bars = container.children;
-            function draw() {
-                if(!isRecording) return;
-                requestAnimationFrame(draw);
-                ana.getByteFrequencyData(data);
-                for(let i=0; i<15; i++) bars[i].style.height = isPaused ? "4px" : (data[i*10]/3 + 4) + "px";
+            if (isPaused) {
+                pauseBtn.innerText = "GA DOOR";
+                pauseBtn.classList.add('bg-orange-600');
+                recognition.stop();
+            } else {
+                pauseBtn.innerText = "PAUZE";
+                pauseBtn.classList.remove('bg-orange-600');
+                recognition.start();
             }
-            draw();
-        }
+        };
     </script>
 </body>
 </html>
