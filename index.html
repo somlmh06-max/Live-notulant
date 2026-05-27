@@ -22,129 +22,114 @@
     </div>
 
     <script>
-        // Jouw specifieke Google Web App URL
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw4KWYtV8bDMYjhLzNpKXDdWHYfom6f_opZJQjmk6klhhKO5P4MUqVenIf_4RSoeIEwfg/exec";
+    const WEB_APP_URL = "PLAK_HIER_JE_NIEUWE_EXEC_URL"; // <--- VUL DIT IN
 
-        let mediaRecorder;
-        let fullTranscript = "";
-        let isRecording = false;
-        let timerInterval;
-        let seconds = 0;
+    let mediaRecorder;
+    let fullTranscript = "";
+    let isRecording = false;
+    let timerInterval;
+    let seconds = 0;
 
-        const recordBtn = document.getElementById('recordBtn');
-        const statusText = document.getElementById('statusText');
-        const timerDisplay = document.getElementById('timer');
-        const log = document.getElementById('log');
+    const recordBtn = document.getElementById('recordBtn');
+    const statusText = document.getElementById('statusText');
+    const timerDisplay = document.getElementById('timer');
+    const log = document.getElementById('log');
 
-        function addLog(msg) {
-            const entry = document.createElement('div');
-            entry.className = "py-1 border-b border-gray-50";
-            entry.textContent = `${new Date().toLocaleTimeString()} - ${msg}`;
-            log.prepend(entry);
+    function addLog(msg, color = "text-gray-400") {
+        const entry = document.createElement('div');
+        entry.className = `py-1 border-b border-gray-50 ${color}`;
+        entry.textContent = `${new Date().toLocaleTimeString()} - ${msg}`;
+        log.prepend(entry);
+    }
+
+    // Verbeterde functie om met Google te praten
+    async function callGAS(action, payload) {
+        const body = JSON.stringify({ action: action, ...payload });
+        try {
+            const response = await fetch(WEB_APP_URL, {
+                method: 'POST',
+                mode: 'cors', // We dwingen CORS af
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // GAS vindt text/plain vaak fijner
+                body: body
+            });
+            const result = await response.json();
+            return result.data;
+        } catch (err) {
+            console.error("GAS Error:", err);
+            return null;
         }
+    }
 
-        async function callGAS(action, payload) {
+    recordBtn.onclick = async () => {
+        if (!isRecording) {
             try {
-                const body = JSON.stringify({ action: action, ...payload });
-                const response = await fetch(WEB_APP_URL, { 
-                    method: 'POST', 
-                    body: body,
-                    mode: 'no-cors' // Nodig voor sommige browser beveiligingen
-                });
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
                 
-                // Omdat we 'no-cors' gebruiken, kunnen we de response niet direct lezen
-                // We gaan ervan uit dat het script op de achtergrond zijn werk doet.
-                return "Verzonden..."; 
+                mediaRecorder.ondataavailable = async (event) => {
+                    if (event.data.size > 0) {
+                        const reader = new FileReader();
+                        reader.readAsDataURL(event.data);
+                        reader.onloadend = async () => {
+                            const base64 = reader.result.split(',')[1];
+                            addLog("Segment verzenden...");
+                            
+                            const text = await callGAS("processAudio", { base64: base64 });
+                            
+                            if (text && text.trim() !== "") {
+                                fullTranscript += text + " ";
+                                addLog("AI Herkende tekst: " + text.substring(0, 30) + "...", "text-green-600");
+                            } else {
+                                addLog("Geen spraak herkend in dit blokje.");
+                            }
+                        };
+                    }
+                };
+
+                mediaRecorder.start(10000); // Elke 10 seconden
+                isRecording = true;
+                recordBtn.textContent = "Stop & Genereer Notulen";
+                recordBtn.classList.replace('bg-blue-700', 'bg-red-600');
+                statusText.textContent = "Systeem luistert...";
+                
+                timerInterval = setInterval(() => {
+                    seconds++;
+                    const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+                    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+                    const s = (seconds % 60).toString().padStart(2, '0');
+                    timerDisplay.textContent = `${h}:${m}:${s}`;
+                }, 1000);
+
             } catch (err) {
-                // Als no-cors niet werkt, proberen we de normale weg
-                const body = JSON.stringify({ action: action, ...payload });
-                const response = await fetch(WEB_APP_URL, { method: 'POST', body: body });
-                const res = await response.json();
-                return res.data;
+                alert("Microfoon fout: " + err.message);
             }
+        } else {
+            stopRecording();
         }
+    };
 
-        recordBtn.onclick = async () => {
-            if (!isRecording) {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    
-                    // Bepaal beste audio-formaat voor deze browser
-                    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
-                                     ? 'audio/webm;codecs=opus' 
-                                     : 'audio/webm';
-                    
-                    mediaRecorder = new MediaRecorder(stream, { mimeType });
-                    
-                    mediaRecorder.ondataavailable = async (event) => {
-                        if (event.data.size > 1000) {
-                            const reader = new FileReader();
-                            reader.readAsDataURL(event.data);
-                            reader.onloadend = async () => {
-                                const base64 = reader.result.split(',')[1];
-                                addLog("Segment naar AI sturen...");
-                                
-                                // We sturen het naar Google
-                                const text = await callGAS("processAudio", { base64: base64 });
-                                if (text && text !== "Verzonden...") {
-                                    fullTranscript += text + " ";
-                                    addLog("Gezegd: " + text.substring(0, 30) + "...");
-                                } else {
-                                    addLog("Bezig met verwerken...");
-                                }
-                            };
-                        }
-                    };
+    async function stopRecording() {
+        isRecording = false;
+        clearInterval(timerInterval);
+        mediaRecorder.stop();
+        
+        recordBtn.disabled = true;
+        recordBtn.textContent = "Verwerken...";
+        statusText.textContent = "Transcript wordt definitief opgeslagen...";
 
-                    mediaRecorder.start(10000); // Elke 10 seconden een stukje audio verwerken
-                    isRecording = true;
-                    recordBtn.textContent = "Stop & Genereer Notulen";
-                    recordBtn.classList.replace('bg-blue-700', 'bg-red-600');
-                    statusText.textContent = "Systeem luistert mee...";
-                    
-                    timerInterval = setInterval(() => {
-                        seconds++;
-                        const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
-                        const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-                        const s = (seconds % 60).toString().padStart(2, '0');
-                        timerDisplay.textContent = `${h}:${m}:${s}`;
-                    }, 1000);
-
-                } catch (err) {
-                    addLog("Microfoon fout: " + err.message);
-                    alert("Kan microfoon niet starten. Controleer je instellingen.");
-                }
+        // Wacht heel even zodat het laatste audio-segment verwerkt kan worden
+        setTimeout(async () => {
+            addLog("Eindrapport maken met transcript lengte: " + fullTranscript.length);
+            const result = await callGAS("finalize", { transcript: fullTranscript });
+            if (result) {
+                statusText.textContent = "Klaar! Documenten staan in Drive.";
+                addLog("Succes! Link: " + result.url, "text-blue-600");
+                window.location.href = result.url;
             } else {
-                stopRecording();
+                addLog("FOUT: Kon niet opslaan. Is het transcript leeg?", "text-red-600");
             }
-        };
-
-        async function stopRecording() {
-            isRecording = false;
-            clearInterval(timerInterval);
-            mediaRecorder.stop();
-            
-            recordBtn.disabled = true;
-            recordBtn.textContent = "Verwerken...";
-            recordBtn.classList.replace('bg-red-600', 'bg-gray-400');
-            statusText.textContent = "Notulen worden opgeslagen in Drive...";
-
-            try {
-                // Laatste afronding in Google Script
-                await callGAS("finalize", { transcript: fullTranscript });
-                addLog("Succes! Documenten staan in je Drive.");
-                statusText.textContent = "Klaar! Check je Drive en Mail.";
-                
-                // Na 3 seconden resetten we de knop voor een nieuwe vergadering
-                setTimeout(() => {
-                    location.reload();
-                }, 3000);
-                
-            } catch (err) {
-                addLog("Fout bij afronden: " + err.message);
-                statusText.textContent = "Er ging iets mis bij het opslaan.";
-            }
-        }
-    </script>
+        }, 2000);
+    }
+</script>
 </body>
 </html>
