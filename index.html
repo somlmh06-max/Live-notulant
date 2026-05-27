@@ -3,134 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RCS Notulist V12.1 (Anti-Stotter Fix)</title>
+    <title>RCS Pro V13</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .pulse-red { animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(220, 38, 38, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
-    </style>
 </head>
-<body class="bg-black text-white p-6 flex flex-col h-screen font-sans overflow-hidden">
+<body class="bg-zinc-950 text-white p-8 flex flex-col h-screen items-center justify-center font-sans">
 
-    <div class="text-center mt-2 mb-4">
-        <h1 class="text-blue-500 font-black tracking-widest text-xl">RCS INTELLIGENCE</h1>
-        <div id="timer" class="text-5xl font-mono mt-2">00:00</div>
+    <div class="text-center mb-12">
+        <h1 class="text-blue-500 font-black tracking-widest text-2xl">RCS NOTULIST PRO</h1>
+        <p class="text-zinc-500 mt-2">Versie 13.0 | Native Audio</p>
     </div>
 
-    <div id="livePreview" class="flex-grow bg-zinc-900 border border-zinc-700 rounded-3xl p-6 mb-8 overflow-y-auto text-lg text-zinc-300 shadow-inner">
-        Druk op start. De tekst verschijnt nu (zonder echo's)...
+    <div class="relative">
+        <input type="file" id="audioCapture" accept="audio/*" capture="microphone" class="hidden">
+        <label for="audioCapture" class="w-64 h-64 bg-red-600 rounded-full flex flex-col items-center justify-center text-center p-6 shadow-[0_0_60px_rgba(220,38,38,0.3)] active:scale-95 transition-all cursor-pointer border-8 border-white/10">
+            <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+            <span class="text-xl font-black">START OPNAME</span>
+        </label>
     </div>
 
-    <div class="flex flex-col items-center gap-6 mb-10 w-full">
-        <button id="mainBtn" class="w-40 h-40 bg-red-600 rounded-full flex items-center justify-center text-xl font-black shadow-2xl transition-all">START</button>
-        <button id="pauseBtn" class="hidden w-full max-w-xs bg-zinc-800 py-4 rounded-2xl font-bold border border-zinc-700">PAUZE</button>
+    <div id="processing" class="hidden fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-10">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 mb-6"></div>
+        <h2 class="text-2xl font-bold">Notulen worden gemaakt...</h2>
+        <p class="text-zinc-400 mt-2 text-center">De AI verwerkt nu de audio en schrijft het Google Doc. Een moment geduld.</p>
     </div>
 
-    <div id="modal" class="hidden fixed inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center p-6 z-50">
-        <div class="bg-white text-black p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl">
-            <h2 class="text-3xl font-black mb-2">Gereed!</h2>
-            <div id="taskList" class="my-6 space-y-2 max-h-40 overflow-y-auto border-t pt-4"></div>
-            <button id="syncBtn" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold mb-3">SYNC TASKS</button>
-            <a id="docLink" href="#" target="_blank" class="block w-full bg-blue-600 text-white text-center py-4 rounded-xl font-bold">OPEN DOCUMENT</a>
-            <button onclick="location.reload()" class="mt-6 w-full text-gray-400 text-xs uppercase font-bold tracking-widest">Nieuwe sessie</button>
+    <div id="success" class="hidden fixed inset-0 bg-zinc-900 z-50 flex flex-col items-center justify-center p-10">
+        <div class="bg-white text-black p-8 rounded-[3rem] w-full max-w-sm text-center">
+            <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <h2 class="text-3xl font-black mb-4">Gereed!</h2>
+            <a id="docLink" href="#" target="_blank" class="block w-full bg-blue-600 text-white py-5 rounded-2xl font-bold text-lg mb-4">OPEN NOTULEN</a>
+            <button onclick="location.reload()" class="text-zinc-400 font-bold uppercase text-xs tracking-widest">Nieuwe opname</button>
         </div>
     </div>
 
     <script>
-        // --- VUL HIER JE DEPLOY URL IN VAN V12 ---
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxTQQW2YtAm9KPrCLFxAsuyeHetM7Lo4mYZZtWulVQ4LAQtUdbHsy0jvzNQ6y2xgdzDkQ/exec"; 
-        
-        let isRecording = false, isPaused = false, seconds = 0, timerInterval;
-        let finalTranscript = "";
-        
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'nl-NL'; 
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyKjN_vaGZez0x4TM4KiDNOg80jHnUAmeRn6lnm6IqOF9dsYI0-EI27Ub7DyyxNHgdfrw/exec";
 
-        const mainBtn = document.getElementById('mainBtn');
-        const pauseBtn = document.getElementById('pauseBtn');
-        const preview = document.getElementById('livePreview');
+        document.getElementById('audioCapture').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
 
-        recognition.onresult = (event) => {
-            if (isPaused) return;
-            
-            // DE ANTI-STOTTER FIX: Haal alle resultaten netjes op en voeg ze samen.
-            let currentText = Array.from(event.results)
-                .map(result => result[0].transcript)
-                .join('');
-                
-            finalTranscript = currentText;
-            preview.innerHTML = `<span class="text-white">${finalTranscript}</span>`;
-            preview.scrollTop = preview.scrollHeight;
-        };
+            document.getElementById('processing').classList.remove('hidden');
 
-        recognition.onend = () => {
-            if (isRecording && !isPaused) recognition.start();
-        };
-
-        mainBtn.onclick = async () => {
-            if (!isRecording) {
-                isRecording = true;
-                finalTranscript = "";
-                preview.innerText = "";
-                recognition.start();
-                
-                mainBtn.innerText = "STOP";
-                mainBtn.classList.add('pulse-red');
-                pauseBtn.classList.remove('hidden');
-                
-                timerInterval = setInterval(() => {
-                    if(!isPaused) {
-                        seconds++;
-                        document.getElementById('timer').innerText = new Date(seconds * 1000).toISOString().substr(14, 5);
-                    }
-                }, 1000);
-            } else {
-                isRecording = false;
-                recognition.stop();
-                clearInterval(timerInterval);
-                
-                mainBtn.innerText = "...";
-                mainBtn.disabled = true;
-                mainBtn.classList.remove('pulse-red');
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onloadend = async () => {
+                const base64 = reader.result.split(',')[1];
                 
                 try {
-                    const res = await fetch(WEB_APP_URL, { 
-                        method: 'POST', 
-                        body: JSON.stringify({ action: "finalize", transcript: finalTranscript }) 
+                    const response = await fetch(WEB_APP_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ base64: base64 })
                     });
-                    const json = await res.json();
+                    const res = await response.json();
                     
-                    if (json.status === "success") {
-                        document.getElementById('docLink').href = json.data.docUrl;
-                        const taskList = document.getElementById('taskList');
-                        json.data.tasks.forEach(t => {
-                            taskList.innerHTML += `<div class="flex items-center gap-3 font-bold text-sm bg-gray-50 p-3 rounded-xl border mb-2"><input type="checkbox" checked> ${t}</div>`;
-                        });
-                        document.getElementById('modal').classList.remove('hidden');
+                    if (res.status === "success") {
+                        document.getElementById('processing').classList.add('hidden');
+                        document.getElementById('success').classList.remove('hidden');
+                        document.getElementById('docLink').href = res.docUrl;
                     } else {
-                        alert("Fout bij opslaan: " + json.data);
+                        alert("Fout: " + res.message);
+                        location.reload();
                     }
-                } catch(e) {
-                    alert("Netwerkfout bij het maken van het document.");
+                } catch (err) {
+                    alert("Netwerkfout. Is het bestand te groot?");
+                    location.reload();
                 }
-            }
-        };
-
-        pauseBtn.onclick = () => {
-            isPaused = !isPaused;
-            if (isPaused) {
-                pauseBtn.innerText = "GA DOOR";
-                pauseBtn.classList.add('bg-orange-600');
-                recognition.stop();
-            } else {
-                pauseBtn.innerText = "PAUZE";
-                pauseBtn.classList.remove('bg-orange-600');
-                recognition.start();
-            }
-        };
+            };
+        });
     </script>
 </body>
 </html>
