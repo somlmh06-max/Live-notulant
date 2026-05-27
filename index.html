@@ -3,168 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RCS Master V11</title>
+    <title>RCS Master V11.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .visualizer-bar { transition: height 0.05s ease; }
-        .pulse-red { animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); } 70% { box-shadow: 0 0 0 30px rgba(220, 38, 38, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
-        body { background-color: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
-    </style>
 </head>
-<body class="flex flex-col h-screen items-center justify-between p-6">
+<body class="bg-black text-white flex flex-col h-screen p-6 overflow-hidden">
 
-    <div id="header" class="text-center mt-4">
-        <h1 class="text-2xl font-black tracking-widest text-blue-500">RCS MASTER V11</h1>
-        <div id="timer" class="text-5xl font-mono mt-2">00:00</div>
+    <div class="text-center">
+        <h1 class="text-blue-500 font-black tracking-tighter text-2xl">RCS INTELLIGENCE</h1>
+        <div id="timer" class="text-6xl font-mono mt-4">00:00</div>
     </div>
 
-    <div id="livePreview" class="w-full bg-zinc-900/50 border border-zinc-800 p-4 rounded-2xl h-32 overflow-y-auto text-sm text-zinc-400 italic mb-4">
-        Wacht op spraak...
+    <div id="livePreview" class="flex-grow my-8 bg-zinc-900 border border-zinc-800 p-6 rounded-3xl overflow-y-auto text-zinc-400 italic text-lg shadow-inner">
+        Wacht op spraak... (Begin met praten)
     </div>
 
-    <div id="visualizer" class="flex items-end justify-center gap-1 h-20 mb-8">
-        </div>
-
-    <div class="relative">
-        <button id="mainBtn" class="w-48 h-48 bg-red-600 rounded-full flex items-center justify-center text-2xl font-black shadow-2xl z-10 relative">START</button>
-        <div id="pulseRing" class="absolute inset-0 rounded-full border-4 border-red-600 hidden"></div>
+    <div class="flex flex-col items-center gap-8 mb-10">
+        <button id="mainBtn" class="w-40 h-40 bg-red-600 rounded-full flex items-center justify-center text-xl font-black shadow-[0_0_50px_rgba(220,38,38,0.3)] active:scale-95 transition-all">START</button>
+        <button id="pauseBtn" class="hidden w-full max-w-xs bg-zinc-800 py-4 rounded-2xl font-bold border border-zinc-700">PAUZE</button>
     </div>
 
-    <div class="flex gap-4 w-full max-w-sm mb-10">
-        <button id="pauseBtn" class="flex-1 bg-zinc-800 py-4 rounded-2xl font-bold border border-zinc-700 hidden">PAUZE</button>
-    </div>
-
-    <div id="resultModal" class="hidden fixed inset-0 bg-black/95 backdrop-blur-md z-50 p-6 flex-col items-center justify-center">
-        <div class="bg-white text-black w-full max-w-md rounded-[3rem] p-8 shadow-2xl">
-            <h2 class="text-2xl font-black mb-4">Verwerking voltooid</h2>
-            <div id="taskList" class="space-y-2 mb-6 max-h-40 overflow-y-auto border-y py-4"></div>
-            <input id="emailInput" type="email" placeholder="E-mail adres voor notulen" class="w-full border p-4 rounded-xl mb-4 text-sm" value="m.heinemans@roercollege.nl">
-            <div class="grid grid-cols-2 gap-2">
-                <button id="syncBtn" class="bg-green-600 text-white font-bold py-4 rounded-xl text-xs">SYNC TASKS</button>
-                <button id="mailBtn" class="bg-orange-500 text-white font-bold py-4 rounded-xl text-xs">MAIL DOC</button>
-            </div>
-            <a id="docLink" href="#" target="_blank" class="block w-full bg-blue-600 text-white text-center font-bold py-4 rounded-xl mt-4">OPEN DOC</a>
-            <button onclick="location.reload()" class="w-full mt-6 text-gray-400 text-xs font-bold tracking-widest uppercase">Sluiten</button>
+    <div id="resultModal" class="hidden fixed inset-0 bg-black/95 flex flex-col items-center justify-center p-6 z-50">
+        <div class="bg-white text-black w-full max-w-md rounded-[3rem] p-10">
+            <h2 class="text-3xl font-black mb-6">Klaar!</h2>
+            <div id="taskList" class="space-y-3 mb-8 max-h-40 overflow-y-auto border-y py-4"></div>
+            <button id="syncBtn" class="w-full bg-green-600 text-white font-bold py-4 rounded-xl mb-3">SYNC TASKS</button>
+            <a id="docLink" href="#" target="_blank" class="block w-full bg-blue-600 text-white text-center font-bold py-4 rounded-xl">OPEN DOCUMENT</a>
+            <button onclick="location.reload()" class="w-full mt-8 text-gray-400 font-bold text-xs uppercase tracking-widest">Opnieuw</button>
         </div>
     </div>
 
     <script>
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwHOi7nRu5N3AlNXmaZlrwG8PlQiHSgJ7D1mtM2VO0oC2vJ90rEuYQpP-eUhHL70gzhJA/exec"; 
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzGk8ssTr3vLp-Vg8DUtBpas0Y3_P0LDPHHlblDvPLxc8F0ssuJ4QOwUQTN5n1wFQL7aA/exec"; 
         let isRecording = false, isPaused = false, seconds = 0, timerInterval, wakeLock = null, globalStream, mediaRecorder, fullTranscript = "";
 
-        // UI Helpers
-        const mainBtn = document.getElementById('mainBtn');
-        const pauseBtn = document.getElementById('pauseBtn');
-        const pulseRing = document.getElementById('pulseRing');
-        const livePreview = document.getElementById('livePreview');
-
-        // Visualizer Setup
-        const visualizer = document.getElementById('visualizer');
-        for(let i=0; i<20; i++) {
-            const bar = document.createElement('div');
-            bar.className = "visualizer-bar w-2 bg-blue-500 rounded-full";
-            bar.style.height = "4px";
-            visualizer.appendChild(bar);
-        }
-
-        async function startRecording() {
+        async function startChunk() {
             if (!isRecording || isPaused) return;
             mediaRecorder = new MediaRecorder(globalStream);
             mediaRecorder.ondataavailable = async (e) => {
-                if (e.data.size > 0) {
-                    const reader = new FileReader();
-                    reader.readAsDataURL(e.data);
-                    reader.onloadend = async () => {
-                        try {
-                            const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "processAudio", base64: reader.result.split(',')[1] }) });
-                            const text = (await res.json()).data;
-                            if (text) {
-                                fullTranscript += text + " ";
-                                livePreview.innerText = fullTranscript;
-                                livePreview.scrollTop = livePreview.scrollHeight;
-                            }
-                        } catch(err) { console.log("Retry in next chunk..."); }
-                    };
-                }
+                const reader = new FileReader();
+                reader.readAsDataURL(e.data);
+                reader.onloadend = async () => {
+                    try {
+                        const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "processAudio", base64: reader.result.split(',')[1] }) });
+                        const json = await res.json();
+                        if (json.data) {
+                            fullTranscript += json.data + " ";
+                            document.getElementById('livePreview').innerText = fullTranscript;
+                            document.getElementById('livePreview').scrollTop = document.getElementById('livePreview').scrollHeight;
+                        }
+                    } catch(e) {}
+                };
             };
             mediaRecorder.start();
-            setTimeout(() => { if (isRecording && !isPaused) { mediaRecorder.stop(); startRecording(); } }, 6000);
+            setTimeout(() => { if (isRecording && !isPaused) { mediaRecorder.stop(); startChunk(); } }, 5000);
         }
 
-        mainBtn.onclick = async () => {
+        document.getElementById('mainBtn').onclick = async () => {
             if (!isRecording) {
-                // START
                 globalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 isRecording = true;
-                mainBtn.textContent = "STOP";
-                mainBtn.classList.add('pulse-red');
-                pauseBtn.classList.remove('hidden');
+                document.getElementById('mainBtn').textContent = "STOP";
+                document.getElementById('pauseBtn').classList.remove('hidden');
                 if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
-                startRecording();
-                timerInterval = setInterval(() => {
-                    if(!isPaused) {
-                        seconds++;
-                        document.getElementById('timer').textContent = new Date(seconds * 1000).toISOString().substr(14, 5);
-                    }
-                }, 1000);
-                startVisualizer(globalStream);
+                startChunk();
+                timerInterval = setInterval(() => { if(!isPaused) { seconds++; document.getElementById('timer').textContent = new Date(seconds * 1000).toISOString().substr(14, 5); } }, 1000);
             } else {
-                // FINALIZE
                 isRecording = false;
-                mainBtn.textContent = "...";
-                mainBtn.disabled = true;
+                clearInterval(timerInterval);
+                document.getElementById('mainBtn').textContent = "...";
+                document.getElementById('mainBtn').disabled = true;
+                
                 const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "finalize", transcript: fullTranscript }) });
-                const result = (await res.json()).data;
-                showResult(result);
+                const json = await res.json();
+                if (json.status === "success") {
+                    document.getElementById('docLink').href = json.data.docUrl;
+                    json.data.tasks.forEach(t => {
+                        document.getElementById('taskList').innerHTML += `<div class="flex items-center gap-3 font-bold text-sm border-b pb-2"><input type="checkbox" checked> ${t}</div>`;
+                    });
+                    document.getElementById('resultModal').classList.replace('hidden', 'flex');
+                } else {
+                    alert("Fout: " + json.data);
+                }
             }
         };
 
-        pauseBtn.onclick = () => {
+        document.getElementById('pauseBtn').onclick = () => {
             isPaused = !isPaused;
-            pauseBtn.textContent = isPaused ? "GA DOOR" : "PAUZE";
-            pauseBtn.classList.toggle('bg-orange-600');
-            if (!isPaused) startRecording();
+            document.getElementById('pauseBtn').textContent = isPaused ? "GA DOOR" : "PAUZE";
+            if (!isPaused) startChunk();
         };
-
-        function showResult(result) {
-            document.getElementById('docLink').href = result.docUrl;
-            const list = document.getElementById('taskList');
-            result.tasks.forEach(t => {
-                list.innerHTML += `<label class="flex items-center text-sm font-bold gap-3 bg-gray-50 p-3 rounded-xl border"><input type="checkbox" checked class="w-5 h-5"> ${t}</label>`;
-            });
-            document.getElementById('resultModal').classList.replace('hidden', 'flex');
-            
-            document.getElementById('syncBtn').onclick = async () => {
-                await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "syncTasks", tasks: result.tasks }) });
-                alert("Taken gesynced!");
-            };
-            
-            document.getElementById('mailBtn').onclick = async () => {
-                const email = document.getElementById('emailInput').value;
-                await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: "sendEmail", url: result.docUrl, email: email }) });
-                alert("Mail verstuurd!");
-            };
-        }
-
-        function startVisualizer(stream) {
-            const context = new AudioContext();
-            const src = context.createMediaStreamSource(stream);
-            const analyzer = context.createAnalyser();
-            src.connect(analyzer);
-            const data = new Uint8Array(analyzer.frequencyBinCount);
-            const bars = document.querySelectorAll('.visualizer-bar');
-            function loop() {
-                if(!isRecording) return;
-                requestAnimationFrame(loop);
-                analyzer.getByteFrequencyData(data);
-                bars.forEach((bar, i) => {
-                    const val = data[i * 5] / 2;
-                    bar.style.height = Math.max(4, val) + "px";
-                });
-            }
-            loop();
-        }
     </script>
 </body>
 </html>
