@@ -75,7 +75,6 @@
   </main>
 
   <script>
-    // Zorg dat deze API URL klopt met je zojuist opgeslagen Apps Script Web App!
     const API_URL = "https://script.google.com/macros/s/AKfycbyBI5zTIOvgkKYAFFR_TVyDZxRQb-KGqNNTc8QPyomiHRJkzW7oUnnRH9xlQmrp8AtHpA/exec";
     
     let mediaRecorder, audioChunks = [];
@@ -111,6 +110,23 @@
       return await res.json();
     }
 
+    // --- SLIMME FORMAT KIEZER (NIEUW) ---
+    function getBestMimeType() {
+      const types = [
+        'audio/mp4',             // Perfect voor iOS/Safari en Gemini
+        'audio/webm;codecs=opus',// Perfect voor Chrome/Android en Gemini
+        'audio/webm',            // Universele fallback
+        'audio/ogg;codecs=opus'  // Alternatieve fallback
+      ];
+      for (let type of types) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          console.log("Geselecteerd audio formaat: ", type);
+          return type;
+        }
+      }
+      return ''; // Laat de browser default kiezen als niets wordt ondersteund
+    }
+
     // --- KNOP ACTIONS ---
     recordBtn.addEventListener('click', async () => {
       if (!isRecording) await startRecording(); else stopRecording();
@@ -126,7 +142,10 @@
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         noSleep.enable();
         
-        let options = { mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4' };
+        // Gebruik de slimme formaat kiezer
+        const bestMimeType = getBestMimeType();
+        let options = bestMimeType ? { mimeType: bestMimeType } : {};
+        
         mediaRecorder = new MediaRecorder(stream, options);
         audioChunks = [];
         mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
@@ -142,7 +161,6 @@
         isRecording = true;
         isPaused = false;
         
-        // Simpele en robuuste timer
         timerSeconds = 0;
         timerInterval = setInterval(() => {
           if(!isPaused) {
@@ -153,7 +171,7 @@
         
         // UI Updates voor Start
         recordBtn.classList.add('bg-red-700', 'recording-active');
-        pauseBtn.classList.remove('hidden'); pauseBtn.classList.add('flex'); // Toon pauzeknop
+        pauseBtn.classList.remove('hidden'); pauseBtn.classList.add('flex'); 
         micIcon.classList.add('hidden'); stopIcon.classList.remove('hidden');
         timerDisplay.classList.remove('hidden'); resultBox.classList.add('hidden');
         buttonLabel.innerText = "Stop";
@@ -169,7 +187,6 @@
       mediaRecorder.pause();
       isPaused = true;
       
-      // UI Updates voor Pauze
       recordBtn.classList.remove('recording-active');
       pauseBtn.classList.add('paused-pulse');
       pauseIcon.classList.add('hidden'); playIcon.classList.remove('hidden');
@@ -185,7 +202,6 @@
       mediaRecorder.resume();
       isPaused = false;
       
-      // UI Updates voor Hervatten
       recordBtn.classList.add('recording-active');
       pauseBtn.classList.remove('paused-pulse');
       playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden');
@@ -198,7 +214,7 @@
 
     function stopRecording() {
       if (!mediaRecorder) return;
-      if (mediaRecorder.state === "paused") mediaRecorder.resume(); // Hervat kort om veilig af te sluiten
+      if (mediaRecorder.state === "paused") mediaRecorder.resume(); 
       mediaRecorder.stop();
       mediaRecorder.stream.getTracks().forEach(t => t.stop()); 
       noSleep.disable();
@@ -206,7 +222,6 @@
       isRecording = false;
       isPaused = false;
       
-      // UI Updates voor Stop
       recordBtn.classList.remove('bg-red-700', 'recording-active');
       pauseBtn.classList.add('hidden'); pauseBtn.classList.remove('flex', 'paused-pulse');
       micIcon.classList.remove('hidden'); stopIcon.classList.add('hidden');
