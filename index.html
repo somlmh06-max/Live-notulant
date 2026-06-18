@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
   <title>RCS Notulist Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/nosleep/0.12.0/NoSleep.min.js"></script>
   <style>
     @keyframes pulse-red {
       0%, 100% { transform: scale(1); opacity: 1; }
@@ -98,7 +99,8 @@
     let startTime;
     let timerInterval;
     let isRecording = false;
-    const CHUNK_SIZE = 1024 * 1024; // Veilige chunkgrootte van exact 1 MB
+    let noSleep = new NoSleep(); // Activeer NoSleep object
+    const CHUNK_SIZE = 1024 * 1024; 
 
     const recordBtn = document.getElementById('record-btn');
     const micIcon = document.getElementById('mic-icon');
@@ -117,7 +119,6 @@
     const tasksList = document.getElementById('tasks-list');
     const panelTitle = document.getElementById('panel-title');
 
-    // Klikken op de grote knop (Opnemen starten/stoppen)
     recordBtn.addEventListener('click', async () => {
       if (!isRecording) {
         await startRecording();
@@ -126,7 +127,6 @@
       }
     });
 
-    // Bestand selecteren via uploadbox
     fileInput.addEventListener('change', (e) => {
       if (e.target.files.length > 0) {
         processAndUploadBlob(e.target.files[0]);
@@ -138,10 +138,12 @@
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         
-        // Bepaal het best ondersteunde mimeType in de huidige browser
+        // ZET NOSLEEP AAN (Voorkomt zwart scherm)
+        noSleep.enable();
+        
         let options = { mimeType: 'audio/webm' };
         if (!MediaRecorder.isTypeSupported('audio/webm')) {
-          options = { mimeType: 'audio/mp4' }; // Fallback voor iOS/Safari
+          options = { mimeType: 'audio/mp4' }; 
         }
 
         mediaRecorder = new MediaRecorder(stream, options);
@@ -155,9 +157,8 @@
           processAndUploadBlob(audioBlob);
         };
 
-        mediaRecorder.start(1000); // Verzamel data elke seconde
+        mediaRecorder.start(1000); 
         
-        // UI updates voor actieve opname
         isRecording = true;
         startTime = Date.now();
         timerInterval = setInterval(updateTimer, 1000);
@@ -173,11 +174,11 @@
         buttonLabel.classList.replace('text-red-600', 'text-red-700');
         statusText.innerText = "De microfoon luistert actief...";
         statusText.classList.add('text-red-600', 'font-bold');
-        subStatus.innerText = "Spreek rustig. Dialect en jargon worden realtime gecorrigeerd bij afronding.";
+        subStatus.innerText = "Spreek rustig. Je telefoon blijft nu wakker dankzij de NoSleep beveiliging.";
         panelTitle.innerText = "Opname Bezig...";
 
       } catch (err) {
-        alert("Microfoonfout: Geen toegang verleend of geen microfoon gevonden. Controleer de browserrechten.");
+        alert("Microfoonfout: Geen toegang verleend of geen microfoon gevonden.");
         console.error(err);
       }
     }
@@ -185,12 +186,14 @@
     function stopRecording() {
       if (mediaRecorder && isRecording) {
         mediaRecorder.stop();
-        mediaRecorder.stream.getTracks().forEach(track => track.stop()); // Zet microfoon hardware uit
+        mediaRecorder.stream.getTracks().forEach(track => track.stop()); 
+        
+        // ZET NOSLEEP UIT (Scherm mag weer op slot)
+        noSleep.disable();
         
         clearInterval(timerInterval);
         isRecording = false;
         
-        // Reset Record knop naar standaard
         recordBtn.classList.remove('bg-red-700', 'recording-active');
         micIcon.classList.remove('hidden');
         stopIcon.classList.add('hidden');
@@ -213,7 +216,6 @@
         String(seconds).padStart(2, '0');
     }
 
-    // Centraal verwerkingsmechanisme voor chunks (werkt voor live opname én handmatige upload)
     async function processAndUploadBlob(blob) {
       const totalChunks = Math.ceil(blob.size / CHUNK_SIZE);
       const uid = 'rcs_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
@@ -221,7 +223,6 @@
       const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
       const fileName = 'RCS_Vergadering_' + new Date().toISOString().slice(0,10) + '.' + extension;
 
-      // Blokkeer interface tijdens verwerking
       recordBtn.disabled = true;
       recordBtn.classList.add('opacity-40', 'cursor-not-allowed');
       uploadBox.classList.add('hidden');
@@ -229,23 +230,23 @@
       panelTitle.innerText = "Data Verwerken";
 
       try {
-        // Loop opeenvolgend door alle chunks heen
         for (let i = 0; i < totalChunks; i++) {
           const start = i * CHUNK_SIZE;
           const end = Math.min(start + CHUNK_SIZE, blob.size);
           const chunkBlob = blob.slice(start, end);
           
-          // Converteer de chunk naar een kale Base64 string
           const base64Data = await chunkToBase64(chunkBlob);
           
-          // Update voortgangsindicatie
           const percentage = Math.round(((i + 1) / totalChunks) * 100);
           progressBar.style.width = percentage + '%';
           statusText.innerText = `Audio uploaden naar Drive...`;
           subStatus.innerText = `Deel ${i + 1} van de ${totalChunks} wordt opgeslagen...`;
 
-          // Synchroniseer met de Apps Script backend
           await new Promise((resolve, reject) => {
+            if (typeof google === 'undefined') {
+               reject(new Error("UITVOERINGSFOUT: Je draait dit buiten Google. Open de Web App link via Apps Script (beginnend met script.google.com)."));
+               return;
+            }
             google.script.run
               .withSuccessHandler((res) => {
                 if (res.success) resolve();
@@ -256,7 +257,6 @@
           });
         }
 
-        // Chunks zijn binnen, start nu de AI verwerking (Finalize)
         statusText.innerText = "AI Notulist Analyseert de Vergadering...";
         subStatus.innerText = "De audio wordt nu door de Gemini Cloud geïndexeerd en uitgeschreven naar de directie-opmaak. Dit duurt meestal 30-90 seconden op basis van de lengte...";
         progressBar.classList.add('animate-pulse', 'bg-emerald-600');
@@ -277,7 +277,6 @@
       }
     }
 
-    // Helper: Convert Blob naar schone Base64 string zonder metadata headers
     function chunkToBase64(blob) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -291,7 +290,6 @@
     }
 
     function displaySuccess(docUrl, tasks) {
-      // De-blokkeer interface
       resetInterface();
       panelTitle.innerText = "Succesvol Afgerond";
       statusText.innerText = "Klaar! Notulen zijn opgesteld.";
@@ -300,7 +298,6 @@
       docLink.href = docUrl;
       resultBox.classList.remove('hidden');
 
-      // Toon een preview van de taken als die er zijn
       if (tasks && tasks.length > 0) {
         tasksList.innerHTML = '';
         tasks.forEach(t => {
@@ -329,7 +326,7 @@
       timerDisplay.classList.add('hidden');
       progressBar.classList.remove('animate-pulse', 'bg-emerald-600');
       progressBar.style.width = '0%';
-      fileInput.value = ''; // Reset file input
+      fileInput.value = ''; 
     }
   </script>
 </body>
