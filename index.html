@@ -3,35 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-  <title>RCS Notulist Pro</title>
+  <title>RCS Notulist Pro (GitHub Edition)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/nosleep/0.12.0/NoSleep.min.js"></script>
   <style>
-    @keyframes pulse-red {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.05); opacity: 0.8; box-shadow: 0 0 0 12px rgba(239, 68, 68, 0.3); }
-    }
-    .recording-active {
-      animation: pulse-red 2s infinite;
-    }
+    @keyframes pulse-red { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; box-shadow: 0 0 0 12px rgba(239, 68, 68, 0.3); } }
+    .recording-active { animation: pulse-red 2s infinite; }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between font-sans">
 
   <header class="bg-[#0f4c81] text-white shadow-md py-4 px-6">
     <div class="max-w-4xl mx-auto flex justify-between items-center">
-      <div>
-        <h1 class="text-xl font-bold tracking-tight">RCS Notulist Pro</h1>
-        <p class="text-xs text-slate-200/80">Directie-assistent • Roer College Schöndeln</p>
-      </div>
-      <div class="text-right hidden sm:block">
-        <span class="bg-[#10b981] text-white text-xs px-2.5 py-1 rounded-full font-semibold">AI Connected</span>
-      </div>
+      <div><h1 class="text-xl font-bold tracking-tight">RCS Notulist Pro</h1><p class="text-xs text-slate-200/80">Directie-assistent • GitHub Secure Hosted</p></div>
     </div>
   </header>
 
   <main class="flex-grow max-w-xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center">
-    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden transition-all duration-300">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
       
       <div class="bg-slate-100 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
         <h2 id="panel-title" class="text-sm font-bold text-slate-500 uppercase tracking-wider">Vergadering Opnemen</h2>
@@ -39,10 +28,9 @@
       </div>
 
       <div class="p-6 sm:p-8 space-y-6">
-        
         <div id="status-container" class="text-center space-y-2">
-          <p id="status-text" class="text-slate-600 font-medium">Klik op de microfoon om de opname van de vergadering te starten.</p>
-          <p id="sub-status" class="text-xs text-slate-400 max-w-sm mx-auto">De AI vertaalt Limburgs/Remunjs jargon automatisch naar zakelijk Nederlands.</p>
+          <p id="status-text" class="text-slate-600 font-medium">Klik op de microfoon om de opname te starten.</p>
+          <p id="sub-status" class="text-xs text-slate-400">Jouw telefoon blijft wakker tijdens de vergadering.</p>
         </div>
 
         <div id="progress-container" class="space-y-2 hidden">
@@ -51,37 +39,22 @@
           </div>
         </div>
 
-        <div class="flex flex-col items-center justify-center space-y-4 py-4">
-          <button id="record-btn" class="w-28 h-28 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-lg transition-all transform hover:scale-105 active:scale-95 focus:outline-none">
+        <div class="flex flex-col items-center justify-center py-4">
+          <button id="record-btn" class="w-28 h-28 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-lg transition-all focus:outline-none">
             <svg id="mic-icon" class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
             <svg id="stop-icon" class="w-12 h-12 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H10a1 1 0 01-1-1v-4z"></path></svg>
           </button>
-          
-          <p id="button-label" class="text-xs font-bold uppercase tracking-widest text-red-600">Start Opname</p>
-        </div>
-
-        <div id="upload-box" class="border-2 border-dashed border-slate-200 hover:border-[#0f4c81] rounded-xl p-4 text-center transition cursor-pointer group bg-slate-50/50">
-          <input type="file" id="file-input" accept="audio/*" class="hidden">
-          <label for="file-input" class="cursor-pointer block space-y-1">
-            <span class="text-xs font-bold text-slate-500 group-hover:text-[#0f4c81] transition block">Of selecteer een bestaand audiobestand</span>
-            <span class="text-[11px] text-slate-400 block">MP3, M4A, WAV, WEBM etc.</span>
-          </label>
+          <p id="button-label" class="text-xs font-bold uppercase tracking-widest text-red-600 mt-4">Start Opname</p>
         </div>
 
         <div id="result-box" class="hidden border-t border-slate-200 pt-6 space-y-4">
           <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
-            <span class="text-2xl block mb-1">🎉</span>
-            <h4 class="text-emerald-800 font-bold text-sm">Notulen Succesvol Gegenereerd!</h4>
-            <p class="text-xs text-emerald-600 mt-1">Het document is opgeslagen in de directiemap op Google Drive.</p>
+            <h4 class="text-emerald-800 font-bold text-sm">Notulen Gegenereerd!</h4>
           </div>
-          
-          <a id="doc-link" href="#" target="_blank" class="w-full bg-[#0f4c81] hover:bg-[#0c3e69] text-white font-bold py-3.5 px-4 rounded-xl shadow transition text-center block text-sm tracking-wide uppercase">
-            📄 Open Google Doc Notulen
-          </a>
-
+          <a id="doc-link" href="#" target="_blank" class="w-full bg-[#0f4c81] text-white font-bold py-3.5 px-4 rounded-xl text-center block text-sm tracking-wide uppercase">📄 Open Document</a>
           <div id="tasks-preview" class="space-y-2 hidden">
-            <h5 class="text-xs font-bold uppercase text-slate-400 tracking-wider">Gevonden Actiepunten:</h5>
             <ul id="tasks-list" class="text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 divide-y divide-slate-100 space-y-2"></ul>
+            <button id="sync-tasks-btn" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-xs">Zet alles in Google Tasks</button>
           </div>
         </div>
 
@@ -89,19 +62,16 @@
     </div>
   </main>
 
-  <footer class="text-center py-4 text-[11px] text-slate-400 border-t border-slate-200 bg-white">
-    <p>© 2026 Roer College Schöndeln • Strikt Vertrouwelijk • Mogelijk gemaakt door Gemini Pro AI</p>
-  </footer>
-
   <script>
-    let mediaRecorder;
-    let audioChunks = [];
-    let startTime;
-    let timerInterval;
-    let isRecording = false;
-    let noSleep = new NoSleep(); // Activeer NoSleep object
+    // Jouw specifieke Web App URL is hier gekoppeld
+    const API_URL = "https://script.google.com/macros/s/AKfycbzyZvv30aQba2jN49smuZeSHvVNsIJ4eyMKgd7M58h3_TT4rvxjy20TA6O6k8HOmcZy8g/exec";
+    
+    let mediaRecorder, audioChunks = [], startTime, timerInterval, isRecording = false;
+    let noSleep = new NoSleep();
+    let pendingTasks = [], finalDocUrl = "";
     const CHUNK_SIZE = 1024 * 1024; 
 
+    // UI Elementen
     const recordBtn = document.getElementById('record-btn');
     const micIcon = document.getElementById('mic-icon');
     const stopIcon = document.getElementById('stop-icon');
@@ -111,223 +81,126 @@
     const subStatus = document.getElementById('sub-status');
     const progressContainer = document.getElementById('progress-container');
     const progressBar = document.getElementById('progress-bar');
-    const fileInput = document.getElementById('file-input');
-    const uploadBox = document.getElementById('upload-box');
     const resultBox = document.getElementById('result-box');
     const docLink = document.getElementById('doc-link');
     const tasksPreview = document.getElementById('tasks-preview');
     const tasksList = document.getElementById('tasks-list');
-    const panelTitle = document.getElementById('panel-title');
+    const syncBtn = document.getElementById('sync-tasks-btn');
+
+    // Netwerk communicatie naar Google Apps Script (Bypass CORS)
+    async function callAppsScript(payload) {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        redirect: "follow",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    }
 
     recordBtn.addEventListener('click', async () => {
-      if (!isRecording) {
-        await startRecording();
-      } else {
-        stopRecording();
-      }
-    });
-
-    fileInput.addEventListener('change', (e) => {
-      if (e.target.files.length > 0) {
-        processAndUploadBlob(e.target.files[0]);
-      }
+      if (!isRecording) await startRecording(); else stopRecording();
     });
 
     async function startRecording() {
-      audioChunks = [];
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        
-        // ZET NOSLEEP AAN (Voorkomt zwart scherm)
         noSleep.enable();
         
-        let options = { mimeType: 'audio/webm' };
-        if (!MediaRecorder.isTypeSupported('audio/webm')) {
-          options = { mimeType: 'audio/mp4' }; 
-        }
-
+        let options = { mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4' };
         mediaRecorder = new MediaRecorder(stream, options);
-        
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) audioChunks.push(event.data);
-        };
-
-        mediaRecorder.onstop = () => {
-          const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
-          processAndUploadBlob(audioBlob);
-        };
+        audioChunks = [];
+        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+        mediaRecorder.onstop = () => processAndUploadBlob(new Blob(audioChunks, { type: mediaRecorder.mimeType }));
 
         mediaRecorder.start(1000); 
-        
         isRecording = true;
         startTime = Date.now();
-        timerInterval = setInterval(updateTimer, 1000);
+        timerInterval = setInterval(() => {
+          const s = Math.floor((Date.now() - startTime) / 1000);
+          timerDisplay.innerText = [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map(v => String(v).padStart(2, '0')).join(':');
+        }, 1000);
         
         recordBtn.classList.add('bg-red-700', 'recording-active');
-        micIcon.classList.add('hidden');
-        stopIcon.classList.remove('hidden');
-        timerDisplay.classList.remove('hidden');
-        uploadBox.classList.add('hidden');
-        resultBox.classList.add('hidden');
-        
+        micIcon.classList.add('hidden'); stopIcon.classList.remove('hidden');
+        timerDisplay.classList.remove('hidden'); resultBox.classList.add('hidden');
         buttonLabel.innerText = "Stop Opname";
-        buttonLabel.classList.replace('text-red-600', 'text-red-700');
-        statusText.innerText = "De microfoon luistert actief...";
-        statusText.classList.add('text-red-600', 'font-bold');
-        subStatus.innerText = "Spreek rustig. Je telefoon blijft nu wakker dankzij de NoSleep beveiliging.";
-        panelTitle.innerText = "Opname Bezig...";
-
+        statusText.innerText = "De microfoon luistert actief..."; statusText.classList.add('text-red-600', 'font-bold');
+        document.getElementById('panel-title').innerText = "Opname Bezig...";
       } catch (err) {
-        alert("Microfoonfout: Geen toegang verleend of geen microfoon gevonden.");
-        console.error(err);
+        alert("Microfoonfout. Controleer of de browser rechten heeft om de microfoon te gebruiken.");
       }
     }
 
     function stopRecording() {
-      if (mediaRecorder && isRecording) {
-        mediaRecorder.stop();
-        mediaRecorder.stream.getTracks().forEach(track => track.stop()); 
-        
-        // ZET NOSLEEP UIT (Scherm mag weer op slot)
-        noSleep.disable();
-        
-        clearInterval(timerInterval);
-        isRecording = false;
-        
-        recordBtn.classList.remove('bg-red-700', 'recording-active');
-        micIcon.classList.remove('hidden');
-        stopIcon.classList.add('hidden');
-        buttonLabel.innerText = "Start Opname";
-        buttonLabel.classList.replace('text-red-700', 'text-red-600');
-        statusText.classList.remove('text-red-600', 'font-bold');
-      }
-    }
-
-    function updateTimer() {
-      const elapsedTime = Date.now() - startTime;
-      const totalSeconds = Math.floor(elapsedTime / 1000);
-      const hours = Math.floor(totalSeconds / 3600);
-      const minutes = Math.floor((totalSeconds % 3600) / 60);
-      const seconds = totalSeconds % 60;
+      if (!mediaRecorder) return;
+      mediaRecorder.stop();
+      mediaRecorder.stream.getTracks().forEach(t => t.stop()); 
+      noSleep.disable();
+      clearInterval(timerInterval);
+      isRecording = false;
       
-      timerDisplay.innerText = 
-        String(hours).padStart(2, '0') + ':' + 
-        String(minutes).padStart(2, '0') + ':' + 
-        String(seconds).padStart(2, '0');
+      recordBtn.classList.remove('bg-red-700', 'recording-active');
+      micIcon.classList.remove('hidden'); stopIcon.classList.add('hidden');
+      buttonLabel.innerText = "Verwerken...";
     }
 
     async function processAndUploadBlob(blob) {
       const totalChunks = Math.ceil(blob.size / CHUNK_SIZE);
-      const uid = 'rcs_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+      const uid = 'rcs_' + Date.now();
       const mimeType = blob.type || 'audio/webm';
-      const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
-      const fileName = 'RCS_Vergadering_' + new Date().toISOString().slice(0,10) + '.' + extension;
+      const fileName = 'RCS_Audio_' + uid + '.' + (mimeType.includes('mp4') ? 'mp4' : 'webm');
 
-      recordBtn.disabled = true;
-      recordBtn.classList.add('opacity-40', 'cursor-not-allowed');
-      uploadBox.classList.add('hidden');
+      recordBtn.disabled = true; recordBtn.classList.add('opacity-40');
       progressContainer.classList.remove('hidden');
-      panelTitle.innerText = "Data Verwerken";
+      document.getElementById('panel-title').innerText = "Data Verzenden";
 
       try {
         for (let i = 0; i < totalChunks; i++) {
-          const start = i * CHUNK_SIZE;
-          const end = Math.min(start + CHUNK_SIZE, blob.size);
-          const chunkBlob = blob.slice(start, end);
+          const chunkBlob = blob.slice(i * CHUNK_SIZE, Math.min((i + 1) * CHUNK_SIZE, blob.size));
+          const base64Data = await new Promise(res => { const r = new FileReader(); r.onloadend = () => res(r.result.split(',')[1]); r.readAsDataURL(chunkBlob); });
           
-          const base64Data = await chunkToBase64(chunkBlob);
+          progressBar.style.width = Math.round(((i + 1) / totalChunks) * 100) + '%';
+          statusText.innerText = `Audio uploaden...`; subStatus.innerText = `Deel ${i + 1}/${totalChunks}`;
           
-          const percentage = Math.round(((i + 1) / totalChunks) * 100);
-          progressBar.style.width = percentage + '%';
-          statusText.innerText = `Audio uploaden naar Drive...`;
-          subStatus.innerText = `Deel ${i + 1} van de ${totalChunks} wordt opgeslagen...`;
-
-          await new Promise((resolve, reject) => {
-            if (typeof google === 'undefined') {
-               reject(new Error("UITVOERINGSFOUT: Je draait dit buiten Google. Open de Web App link via Apps Script (beginnend met script.google.com)."));
-               return;
-            }
-            google.script.run
-              .withSuccessHandler((res) => {
-                if (res.success) resolve();
-                else reject(new Error(res.error || "Chunk weigering door server."));
-              })
-              .withFailureHandler((err) => reject(err))
-              .saveChunk(base64Data, fileName, i, totalChunks, uid);
-          });
+          const res = await callAppsScript({ action: "saveChunk", base64: base64Data, index: i, uid: uid });
+          if (!res.success) throw new Error("Upload mislukt: " + res.error);
         }
 
-        statusText.innerText = "AI Notulist Analyseert de Vergadering...";
-        subStatus.innerText = "De audio wordt nu door de Gemini Cloud geïndexeerd en uitgeschreven naar de directie-opmaak. Dit duurt meestal 30-90 seconden op basis van de lengte...";
+        statusText.innerText = "AI analyseert de vergadering...";
         progressBar.classList.add('animate-pulse', 'bg-emerald-600');
-
-        google.script.run
-          .withSuccessHandler((result) => {
-            if (result.success) {
-              displaySuccess(result.docUrl, result.tasks);
-            } else {
-              displayError(result.error);
-            }
-          })
-          .withFailureHandler((err) => displayError(err.message || err))
-          .finalizeUpload(fileName, mimeType, uid, totalChunks);
-
-      } catch (error) {
-        displayError(error.message || error);
+        
+        const finalRes = await callAppsScript({ action: "finalizeUpload", fileName: fileName, mimeType: mimeType, uid: uid, totalChunks: totalChunks });
+        if (finalRes.success) {
+           finalDocUrl = finalRes.docUrl; pendingTasks = finalRes.tasks || [];
+           showSuccess();
+        } else throw new Error(finalRes.error);
+      } catch (err) {
+        alert("Er is iets misgegaan: " + err.message); location.reload();
       }
     }
 
-    function chunkToBase64(blob) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64String = reader.result.split(',')[1];
-          resolve(base64String);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-    }
-
-    function displaySuccess(docUrl, tasks) {
-      resetInterface();
-      panelTitle.innerText = "Succesvol Afgerond";
-      statusText.innerText = "Klaar! Notulen zijn opgesteld.";
-      subStatus.innerText = "Klik hieronder om het document direct te openen en eventuele actiepunten te exporteren naar Google Tasks.";
+    function showSuccess() {
+      progressContainer.classList.add('hidden'); recordBtn.classList.add('hidden'); buttonLabel.classList.add('hidden'); timerDisplay.classList.add('hidden');
+      document.getElementById('panel-title').innerText = "Voltooid";
+      statusText.innerText = "Notulen zijn opgesteld!"; statusText.classList.remove('text-red-600'); subStatus.innerText = "";
       
-      docLink.href = docUrl;
+      docLink.href = finalDocUrl;
       resultBox.classList.remove('hidden');
 
-      if (tasks && tasks.length > 0) {
-        tasksList.innerHTML = '';
-        tasks.forEach(t => {
-          const li = document.createElement('li');
-          li.className = 'py-1.5 flex items-start gap-2';
-          li.innerHTML = `<span class="text-emerald-500 font-bold">✓</span> <span class="text-slate-600">${t}</span>`;
-          tasksList.appendChild(li);
-        });
+      if (pendingTasks.length > 0) {
+        tasksList.innerHTML = pendingTasks.map(t => `<li class="py-1 flex items-start gap-2"><span class="text-emerald-500">✓</span> <span>${t}</span></li>`).join('');
         tasksPreview.classList.remove('hidden');
       }
     }
 
-    function displayError(errorMessage) {
-      resetInterface();
-      panelTitle.innerText = "Systeemfout";
-      statusText.innerText = "Er is iets misgegaan.";
-      statusText.classList.add('text-red-600');
-      subStatus.innerHTML = `<span class="bg-red-50 text-red-700 px-2 py-1 rounded block text-left font-mono text-[10px] whitespace-pre-wrap mt-2">${errorMessage}</span>`;
-    }
-
-    function resetInterface() {
-      recordBtn.disabled = false;
-      recordBtn.classList.remove('opacity-40', 'cursor-not-allowed');
-      uploadBox.classList.remove('hidden');
-      progressContainer.classList.add('hidden');
-      timerDisplay.classList.add('hidden');
-      progressBar.classList.remove('animate-pulse', 'bg-emerald-600');
-      progressBar.style.width = '0%';
-      fileInput.value = ''; 
-    }
+    syncBtn.addEventListener('click', async () => {
+      syncBtn.innerText = "BEZIG..."; syncBtn.disabled = true;
+      try {
+        await callAppsScript({ action: "syncTasks", tasks: pendingTasks, docUrl: finalDocUrl });
+        syncBtn.innerText = "✓ SUCCESVOL VERZONDEN NAAR TAKEN"; syncBtn.classList.replace('bg-emerald-600', 'bg-slate-400');
+      } catch(e) { alert("Fout bij syncen."); syncBtn.innerText = "PROBEER OPNIEUW"; syncBtn.disabled = false; }
+    });
   </script>
 </body>
 </html>
