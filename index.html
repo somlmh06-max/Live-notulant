@@ -1,190 +1,336 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RCS V17.0 - Universal</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  <title>RCS Notulist Pro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes pulse-red {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.8; box-shadow: 0 0 0 12px rgba(239, 68, 68, 0.3); }
+    }
+    .recording-active {
+      animation: pulse-red 2s infinite;
+    }
+  </style>
 </head>
-<body class="bg-black text-white p-6 font-sans flex flex-col items-center justify-center min-h-screen">
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between font-sans">
 
-    <div class="max-w-md w-full">
-        <h1 class="text-blue-500 font-black text-center text-2xl mb-12 tracking-widest">RCS NOTULIST PRO</h1>
-        
-        <button id="recordBtn" class="w-56 h-56 bg-red-600 rounded-full mx-auto flex flex-col items-center justify-center text-center p-4 shadow-2xl transition-all border-8 border-white/10 outline-none">
-            <span id="btnText" class="font-black text-xl tracking-wide">START OPNAME</span>
-            <span id="timer" class="text-lg font-mono mt-2 hidden opacity-80">00:00</span>
-        </button>
-
-        <p class="text-center text-zinc-600 text-xs mt-8">Werkt op laptop, tablet en smartphone</p>
-
-        <div id="loader" class="hidden fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-500 mb-6"></div>
-            <p id="loaderText" class="text-blue-400 font-bold tracking-widest uppercase text-sm">Audio verwerken...</p>
-        </div>
-
-        <div id="success" class="hidden fixed inset-0 bg-zinc-950 p-8 flex flex-col justify-center z-50">
-            <div class="bg-white text-black p-6 rounded-3xl">
-                <h2 class="text-2xl font-black text-green-600 mb-4">Klaar!</h2>
-                
-                <a id="docBtn" href="#" target="_blank" class="block w-full bg-blue-600 text-white py-4 rounded-xl text-center font-bold mb-6 shadow-lg">📄 OPEN GOOGLE DOC</a>
-                
-                <div id="taskArea" class="hidden">
-                    <p class="text-xs font-bold text-gray-500 uppercase mb-2">Selecteer taken voor Google Tasks:</p>
-                    <div id="taskList" class="space-y-3 mb-6 max-h-48 overflow-y-auto"></div>
-                    <button id="syncBtn" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold shadow-lg">ZET IN GOOGLE TASKS</button>
-                </div>
-                
-                <button onclick="location.reload()" class="w-full mt-6 text-gray-400 text-xs font-bold uppercase tracking-wider">Sluiten & Nieuwe Opname</button>
-            </div>
-        </div>
+  <header class="bg-[#0f4c81] text-white shadow-md py-4 px-6">
+    <div class="max-w-4xl mx-auto flex justify-between items-center">
+      <div>
+        <h1 class="text-xl font-bold tracking-tight">RCS Notulist Pro</h1>
+        <p class="text-xs text-slate-200/80">Directie-assistent • Roer College Schöndeln</p>
+      </div>
+      <div class="text-right hidden sm:block">
+        <span class="bg-[#10b981] text-white text-xs px-2.5 py-1 rounded-full font-semibold">AI Connected</span>
+      </div>
     </div>
+  </header>
 
-    <script>
-        // VUL HIER JOUW APPS SCRIPT URL IN !!!
-        const URL = "https://script.google.com/macros/s/AKfycbwAxo4Ljk8m-sjmAaomxpNGoRQf7pBiaOl1XpwhqJFirvfbiqrMG9MzJftaMf0Z9UF6/exec"; 
-        let currentDoc = "";
+  <main class="flex-grow max-w-xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden transition-all duration-300">
+      
+      <div class="bg-slate-100 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+        <h2 id="panel-title" class="text-sm font-bold text-slate-500 uppercase tracking-wider">Vergadering Opnemen</h2>
+        <div id="timer" class="text-lg font-mono font-bold text-slate-400 hidden">00:00:00</div>
+      </div>
+
+      <div class="p-6 sm:p-8 space-y-6">
         
-        // Audio recording variabelen
-        let mediaRecorder;
-        let audioChunks = [];
-        let isRecording = false;
-        let timerInterval;
-        let seconds = 0;
+        <div id="status-container" class="text-center space-y-2">
+          <p id="status-text" class="text-slate-600 font-medium">Klik op de microfoon om de opname van de vergadering te starten.</p>
+          <p id="sub-status" class="text-xs text-slate-400 max-w-sm mx-auto">De AI vertaalt Limburgs/Remunjs jargon automatisch naar zakelijk Nederlands.</p>
+        </div>
 
-        const recordBtn = document.getElementById('recordBtn');
-        const btnText = document.getElementById('btnText');
-        const timerDisplay = document.getElementById('timer');
-        const loader = document.getElementById('loader');
+        <div id="progress-container" class="space-y-2 hidden">
+          <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200">
+            <div id="progress-bar" class="bg-[#0f4c81] h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
 
-        // Knop logica
-        recordBtn.onclick = async () => {
-            if (!isRecording) {
-                await startRecording();
+        <div class="flex flex-col items-center justify-center space-y-4 py-4">
+          <button id="record-btn" class="w-28 h-28 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-lg transition-all transform hover:scale-105 active:scale-95 focus:outline-none">
+            <svg id="mic-icon" class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+            <svg id="stop-icon" class="w-12 h-12 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H10a1 1 0 01-1-1v-4z"></path></svg>
+          </button>
+          
+          <p id="button-label" class="text-xs font-bold uppercase tracking-widest text-red-600">Start Opname</p>
+        </div>
+
+        <div id="upload-box" class="border-2 border-dashed border-slate-200 hover:border-[#0f4c81] rounded-xl p-4 text-center transition cursor-pointer group bg-slate-50/50">
+          <input type="file" id="file-input" accept="audio/*" class="hidden">
+          <label for="file-input" class="cursor-pointer block space-y-1">
+            <span class="text-xs font-bold text-slate-500 group-hover:text-[#0f4c81] transition block">Of selecteer een bestaand audiobestand</span>
+            <span class="text-[11px] text-slate-400 block">MP3, M4A, WAV, WEBM etc.</span>
+          </label>
+        </div>
+
+        <div id="result-box" class="hidden border-t border-slate-200 pt-6 space-y-4">
+          <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+            <span class="text-2xl block mb-1">🎉</span>
+            <h4 class="text-emerald-800 font-bold text-sm">Notulen Succesvol Gegenereerd!</h4>
+            <p class="text-xs text-emerald-600 mt-1">Het document is opgeslagen in de directiemap op Google Drive.</p>
+          </div>
+          
+          <a id="doc-link" href="#" target="_blank" class="w-full bg-[#0f4c81] hover:bg-[#0c3e69] text-white font-bold py-3.5 px-4 rounded-xl shadow transition text-center block text-sm tracking-wide uppercase">
+            📄 Open Google Doc Notulen
+          </a>
+
+          <div id="tasks-preview" class="space-y-2 hidden">
+            <h5 class="text-xs font-bold uppercase text-slate-400 tracking-wider">Gevonden Actiepunten:</h5>
+            <ul id="tasks-list" class="text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 divide-y divide-slate-100 space-y-2"></ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <footer class="text-center py-4 text-[11px] text-slate-400 border-t border-slate-200 bg-white">
+    <p>© 2026 Roer College Schöndeln • Strikt Vertrouwelijk • Mogelijk gemaakt door Gemini Pro AI</p>
+  </footer>
+
+  <script>
+    let mediaRecorder;
+    let audioChunks = [];
+    let startTime;
+    let timerInterval;
+    let isRecording = false;
+    const CHUNK_SIZE = 1024 * 1024; // Veilige chunkgrootte van exact 1 MB
+
+    const recordBtn = document.getElementById('record-btn');
+    const micIcon = document.getElementById('mic-icon');
+    const stopIcon = document.getElementById('stop-icon');
+    const buttonLabel = document.getElementById('button-label');
+    const timerDisplay = document.getElementById('timer');
+    const statusText = document.getElementById('status-text');
+    const subStatus = document.getElementById('sub-status');
+    const progressContainer = document.getElementById('progress-container');
+    const progressBar = document.getElementById('progress-bar');
+    const fileInput = document.getElementById('file-input');
+    const uploadBox = document.getElementById('upload-box');
+    const resultBox = document.getElementById('result-box');
+    const docLink = document.getElementById('doc-link');
+    const tasksPreview = document.getElementById('tasks-preview');
+    const tasksList = document.getElementById('tasks-list');
+    const panelTitle = document.getElementById('panel-title');
+
+    // Klikken op de grote knop (Opnemen starten/stoppen)
+    recordBtn.addEventListener('click', async () => {
+      if (!isRecording) {
+        await startRecording();
+      } else {
+        stopRecording();
+      }
+    });
+
+    // Bestand selecteren via uploadbox
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        processAndUploadBlob(e.target.files[0]);
+      }
+    });
+
+    async function startRecording() {
+      audioChunks = [];
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        // Bepaal het best ondersteunde mimeType in de huidige browser
+        let options = { mimeType: 'audio/webm' };
+        if (!MediaRecorder.isTypeSupported('audio/webm')) {
+          options = { mimeType: 'audio/mp4' }; // Fallback voor iOS/Safari
+        }
+
+        mediaRecorder = new MediaRecorder(stream, options);
+        
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = () => {
+          const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+          processAndUploadBlob(audioBlob);
+        };
+
+        mediaRecorder.start(1000); // Verzamel data elke seconde
+        
+        // UI updates voor actieve opname
+        isRecording = true;
+        startTime = Date.now();
+        timerInterval = setInterval(updateTimer, 1000);
+        
+        recordBtn.classList.add('bg-red-700', 'recording-active');
+        micIcon.classList.add('hidden');
+        stopIcon.classList.remove('hidden');
+        timerDisplay.classList.remove('hidden');
+        uploadBox.classList.add('hidden');
+        resultBox.classList.add('hidden');
+        
+        buttonLabel.innerText = "Stop Opname";
+        buttonLabel.classList.replace('text-red-600', 'text-red-700');
+        statusText.innerText = "De microfoon luistert actief...";
+        statusText.classList.add('text-red-600', 'font-bold');
+        subStatus.innerText = "Spreek rustig. Dialect en jargon worden realtime gecorrigeerd bij afronding.";
+        panelTitle.innerText = "Opname Bezig...";
+
+      } catch (err) {
+        alert("Microfoonfout: Geen toegang verleend of geen microfoon gevonden. Controleer de browserrechten.");
+        console.error(err);
+      }
+    }
+
+    function stopRecording() {
+      if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(track => track.stop()); // Zet microfoon hardware uit
+        
+        clearInterval(timerInterval);
+        isRecording = false;
+        
+        // Reset Record knop naar standaard
+        recordBtn.classList.remove('bg-red-700', 'recording-active');
+        micIcon.classList.remove('hidden');
+        stopIcon.classList.add('hidden');
+        buttonLabel.innerText = "Start Opname";
+        buttonLabel.classList.replace('text-red-700', 'text-red-600');
+        statusText.classList.remove('text-red-600', 'font-bold');
+      }
+    }
+
+    function updateTimer() {
+      const elapsedTime = Date.now() - startTime;
+      const totalSeconds = Math.floor(elapsedTime / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      
+      timerDisplay.innerText = 
+        String(hours).padStart(2, '0') + ':' + 
+        String(minutes).padStart(2, '0') + ':' + 
+        String(seconds).padStart(2, '0');
+    }
+
+    // Centraal verwerkingsmechanisme voor chunks (werkt voor live opname én handmatige upload)
+    async function processAndUploadBlob(blob) {
+      const totalChunks = Math.ceil(blob.size / CHUNK_SIZE);
+      const uid = 'rcs_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+      const mimeType = blob.type || 'audio/webm';
+      const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
+      const fileName = 'RCS_Vergadering_' + new Date().toISOString().slice(0,10) + '.' + extension;
+
+      // Blokkeer interface tijdens verwerking
+      recordBtn.disabled = true;
+      recordBtn.classList.add('opacity-40', 'cursor-not-allowed');
+      uploadBox.classList.add('hidden');
+      progressContainer.classList.remove('hidden');
+      panelTitle.innerText = "Data Verwerken";
+
+      try {
+        // Loop opeenvolgend door alle chunks heen
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, blob.size);
+          const chunkBlob = blob.slice(start, end);
+          
+          // Converteer de chunk naar een kale Base64 string
+          const base64Data = await chunkToBase64(chunkBlob);
+          
+          // Update voortgangsindicatie
+          const percentage = Math.round(((i + 1) / totalChunks) * 100);
+          progressBar.style.width = percentage + '%';
+          statusText.innerText = `Audio uploaden naar Drive...`;
+          subStatus.innerText = `Deel ${i + 1} van de ${totalChunks} wordt opgeslagen...`;
+
+          // Synchroniseer met de Apps Script backend
+          await new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler((res) => {
+                if (res.success) resolve();
+                else reject(new Error(res.error || "Chunk weigering door server."));
+              })
+              .withFailureHandler((err) => reject(err))
+              .saveChunk(base64Data, fileName, i, totalChunks, uid);
+          });
+        }
+
+        // Chunks zijn binnen, start nu de AI verwerking (Finalize)
+        statusText.innerText = "AI Notulist Analyseert de Vergadering...";
+        subStatus.innerText = "De audio wordt nu door de Gemini Cloud geïndexeerd en uitgeschreven naar de directie-opmaak. Dit duurt meestal 30-90 seconden op basis van de lengte...";
+        progressBar.classList.add('animate-pulse', 'bg-emerald-600');
+
+        google.script.run
+          .withSuccessHandler((result) => {
+            if (result.success) {
+              displaySuccess(result.docUrl, result.tasks);
             } else {
-                stopRecording();
+              displayError(result.error);
             }
+          })
+          .withFailureHandler((err) => displayError(err.message || err))
+          .finalizeUpload(fileName, mimeType, uid, totalChunks);
+
+      } catch (error) {
+        displayError(error.message || error);
+      }
+    }
+
+    // Helper: Convert Blob naar schone Base64 string zonder metadata headers
+    function chunkToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64String = reader.result.split(',')[1];
+          resolve(base64String);
         };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
 
-        // Starten met opnemen
-        async function startRecording() {
-            try {
-                // Vraag toestemming aan de browser/device voor de microfoon
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks = [];
+    function displaySuccess(docUrl, tasks) {
+      // De-blokkeer interface
+      resetInterface();
+      panelTitle.innerText = "Succesvol Afgerond";
+      statusText.innerText = "Klaar! Notulen zijn opgesteld.";
+      subStatus.innerText = "Klik hieronder om het document direct te openen en eventuele actiepunten te exporteren naar Google Tasks.";
+      
+      docLink.href = docUrl;
+      resultBox.classList.remove('hidden');
 
-                mediaRecorder.ondataavailable = e => {
-                    if (e.data.size > 0) audioChunks.push(e.data);
-                };
+      // Toon een preview van de taken als die er zijn
+      if (tasks && tasks.length > 0) {
+        tasksList.innerHTML = '';
+        tasks.forEach(t => {
+          const li = document.createElement('li');
+          li.className = 'py-1.5 flex items-start gap-2';
+          li.innerHTML = `<span class="text-emerald-500 font-bold">✓</span> <span class="text-slate-600">${t}</span>`;
+          tasksList.appendChild(li);
+        });
+        tasksPreview.classList.remove('hidden');
+      }
+    }
 
-                mediaRecorder.onstop = processAudio;
-                mediaRecorder.start();
-                isRecording = true;
-                
-                // UI Update: Knop gaat knipperen en timer start
-                recordBtn.classList.replace('bg-red-600', 'bg-red-500');
-                recordBtn.classList.add('animate-pulse');
-                btnText.innerText = "STOP OPNAME";
-                timerDisplay.classList.remove('hidden');
-                
-                seconds = 0;
-                timerDisplay.innerText = "00:00";
-                timerInterval = setInterval(() => {
-                    seconds++;
-                    const m = String(Math.floor(seconds / 60)).padStart(2, '0');
-                    const s = String(seconds % 60).padStart(2, '0');
-                    timerDisplay.innerText = `${m}:${s}`;
-                }, 1000);
+    function displayError(errorMessage) {
+      resetInterface();
+      panelTitle.innerText = "Systeemfout";
+      statusText.innerText = "Er is iets misgegaan.";
+      statusText.classList.add('text-red-600');
+      subStatus.innerHTML = `<span class="bg-red-50 text-red-700 px-2 py-1 rounded block text-left font-mono text-[10px] whitespace-pre-wrap mt-2">${errorMessage}</span>`;
+    }
 
-            } catch (err) {
-                alert("Microfoon niet gevonden of geen toestemming gegeven. Fout: " + err.message);
-            }
-        }
-
-        // Stoppen met opnemen
-        function stopRecording() {
-            if (mediaRecorder && mediaRecorder.state !== "inactive") {
-                mediaRecorder.stop();
-                mediaRecorder.stream.getTracks().forEach(track => track.stop()); // Zet de microfoon echt uit
-            }
-            isRecording = false;
-            clearInterval(timerInterval);
-            
-            // UI Update
-            recordBtn.classList.replace('bg-red-500', 'bg-zinc-800');
-            recordBtn.classList.remove('animate-pulse');
-            btnText.innerText = "BEZIG...";
-            timerDisplay.classList.add('hidden');
-        }
-
-        // Opname omzetten en versturen naar Apps Script
-        function processAudio() {
-            loader.classList.remove('hidden');
-            
-            // Maak een audiobestand (Blob) van de opgenomen blokjes
-            const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
-            
-            const reader = new FileReader();
-            reader.readAsDataURL(audioBlob);
-            reader.onloadend = async () => {
-                const base64data = reader.result.split(',')[1];
-                try {
-                    const res = await fetch(URL, { 
-                        method: 'POST', 
-                        body: JSON.stringify({ base64: base64data, mimeType: audioBlob.type })
-                    });
-                    showResult(await res.json());
-                } catch (e) {
-                    alert("Fout bij verzenden. Check je internetverbinding.");
-                    location.reload();
-                }
-            };
-        }
-
-        // Verwerk het antwoord van de AI
-        function showResult(res) {
-            loader.classList.add('hidden');
-            if(res.status === "success") {
-                currentDoc = res.docUrl;
-                document.getElementById('docBtn').href = currentDoc;
-                document.getElementById('success').classList.remove('hidden');
-                
-                if(res.tasks && res.tasks.length > 0) {
-                    document.getElementById('taskArea').classList.remove('hidden');
-                    const list = document.getElementById('taskList');
-                    list.innerHTML = "";
-                    res.tasks.forEach((t) => {
-                        list.innerHTML += `
-                            <label class="flex items-start gap-3 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
-                                <input type="checkbox" value="${t}" class="task-cb mt-1 w-5 h-5 accent-blue-600">
-                                <span class="text-sm font-medium text-zinc-800">${t}</span>
-                            </label>`;
-                    });
-                }
-            } else { 
-                alert("AI is druk. De audio is opgeslagen in je Google Drive. Controleer je mail morgenvroeg!"); 
-                location.reload();
-            }
-        }
-
-        // De "ZET IN GOOGLE TASKS" knop
-        document.getElementById('syncBtn').onclick = async () => {
-            const selected = Array.from(document.querySelectorAll('.task-cb:checked')).map(cb => cb.value);
-            if(selected.length === 0) return alert("Selecteer eerst taken!");
-            
-            const btn = document.getElementById('syncBtn');
-            btn.innerText = "BEZIG...";
-            btn.disabled = true;
-            
-            await fetch(URL, { 
-                method: 'POST', 
-                body: JSON.stringify({ action: "syncTasks", tasks: selected, docUrl: currentDoc })
-            });
-            
-            btn.innerText = "✓ OVERGEZET";
-            btn.classList.replace('bg-green-600', 'bg-zinc-400');
-        };
-    </script>
+    function resetInterface() {
+      recordBtn.disabled = false;
+      recordBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+      uploadBox.classList.remove('hidden');
+      progressContainer.classList.add('hidden');
+      timerDisplay.classList.add('hidden');
+      progressBar.classList.remove('animate-pulse', 'bg-emerald-600');
+      progressBar.style.width = '0%';
+      fileInput.value = ''; // Reset file input
+    }
+  </script>
 </body>
 </html>
