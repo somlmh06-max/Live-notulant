@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-  <title>RCS Notulist Pro (GitHub Edition)</title>
+  <title>RCS Notulist Pro (Production)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/nosleep/0.12.0/NoSleep.min.js"></script>
   <style>
@@ -15,7 +15,7 @@
 
   <header class="bg-[#0f4c81] text-white shadow-md py-4 px-6">
     <div class="max-w-4xl mx-auto flex justify-between items-center">
-      <div><h1 class="text-xl font-bold tracking-tight">RCS Notulist Pro</h1><p class="text-xs text-slate-200/80">Directie-assistent • GitHub Secure Hosted</p></div>
+      <div><h1 class="text-xl font-bold tracking-tight">RCS Notulist Pro</h1><p class="text-xs text-slate-200/80">Directie-assistent • Workspace Connected</p></div>
     </div>
   </header>
 
@@ -29,8 +29,8 @@
 
       <div class="p-6 sm:p-8 space-y-6">
         <div id="status-container" class="text-center space-y-2">
-          <p id="status-text" class="text-slate-600 font-medium">Klik op de microfoon om de opname te starten.</p>
-          <p id="sub-status" class="text-xs text-slate-400">Jouw telefoon blijft wakker tijdens de vergadering.</p>
+          <p id="status-text" class="text-slate-600 font-medium">Klik op de microfoon om te starten.</p>
+          <p id="sub-status" class="text-xs text-slate-400">Het scherm blijft actief tijdens het opnemen.</p>
         </div>
 
         <div id="progress-container" class="space-y-2 hidden">
@@ -49,12 +49,12 @@
 
         <div id="result-box" class="hidden border-t border-slate-200 pt-6 space-y-4">
           <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
-            <h4 class="text-emerald-800 font-bold text-sm">Notulen Gegenereerd!</h4>
+            <h4 class="text-emerald-800 font-bold text-sm">Notulen Klaar & Gemaild!</h4>
           </div>
           <a id="doc-link" href="#" target="_blank" class="w-full bg-[#0f4c81] text-white font-bold py-3.5 px-4 rounded-xl text-center block text-sm tracking-wide uppercase">📄 Open Document</a>
           <div id="tasks-preview" class="space-y-2 hidden">
             <ul id="tasks-list" class="text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 divide-y divide-slate-100 space-y-2"></ul>
-            <button id="sync-tasks-btn" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-xs">Zet alles in Google Tasks</button>
+            <button id="sync-tasks-btn" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-xs">Zet actiepunten in Google Tasks</button>
           </div>
         </div>
 
@@ -63,15 +63,16 @@
   </main>
 
   <script>
-    // Jouw specifieke Web App URL is hier gekoppeld
-    const API_URL = "https://script.google.com/macros/s/AKfycbzyZvv30aQba2jN49smuZeSHvVNsIJ4eyMKgd7M58h3_TT4rvxjy20TA6O6k8HOmcZy8g/exec";
+    // VERVANG DEZE URL DOOR JE NIEUWE APPS SCRIPT WEB APP URL
+    const API_URL = "https://script.google.com/macros/s/AKfycbz5f8w-2QExIrJa9ksthi8kltHkwi5Tno4-Smwuig2TosVIxwqgyk_OjpWT_oCAGC2umg/exec";
     
     let mediaRecorder, audioChunks = [], startTime, timerInterval, isRecording = false;
     let noSleep = new NoSleep();
     let pendingTasks = [], finalDocUrl = "";
-    const CHUNK_SIZE = 1024 * 1024; 
+    
+    // Cruciaal: 1.500.000 bytes is exact deelbaar door 3, waardoor Base64 stitching foutloos werkt.
+    const CHUNK_SIZE = 1500000; 
 
-    // UI Elementen
     const recordBtn = document.getElementById('record-btn');
     const micIcon = document.getElementById('mic-icon');
     const stopIcon = document.getElementById('stop-icon');
@@ -87,7 +88,6 @@
     const tasksList = document.getElementById('tasks-list');
     const syncBtn = document.getElementById('sync-tasks-btn');
 
-    // Netwerk communicatie naar Google Apps Script (Bypass CORS)
     async function callAppsScript(payload) {
       const res = await fetch(API_URL, {
         method: "POST",
@@ -125,10 +125,10 @@
         micIcon.classList.add('hidden'); stopIcon.classList.remove('hidden');
         timerDisplay.classList.remove('hidden'); resultBox.classList.add('hidden');
         buttonLabel.innerText = "Stop Opname";
-        statusText.innerText = "De microfoon luistert actief..."; statusText.classList.add('text-red-600', 'font-bold');
-        document.getElementById('panel-title').innerText = "Opname Bezig...";
+        statusText.innerText = "Systeem luistert mee..."; statusText.classList.add('text-red-600', 'font-bold');
+        document.getElementById('panel-title').innerText = "Opname Actief";
       } catch (err) {
-        alert("Microfoonfout. Controleer of de browser rechten heeft om de microfoon te gebruiken.");
+        alert("Microfoonfout. Controleer app-rechten.");
       }
     }
 
@@ -153,7 +153,7 @@
 
       recordBtn.disabled = true; recordBtn.classList.add('opacity-40');
       progressContainer.classList.remove('hidden');
-      document.getElementById('panel-title').innerText = "Data Verzenden";
+      document.getElementById('panel-title').innerText = "Datatransfer";
 
       try {
         for (let i = 0; i < totalChunks; i++) {
@@ -161,29 +161,30 @@
           const base64Data = await new Promise(res => { const r = new FileReader(); r.onloadend = () => res(r.result.split(',')[1]); r.readAsDataURL(chunkBlob); });
           
           progressBar.style.width = Math.round(((i + 1) / totalChunks) * 100) + '%';
-          statusText.innerText = `Audio uploaden...`; subStatus.innerText = `Deel ${i + 1}/${totalChunks}`;
+          statusText.innerText = `Verzenden naar Google Workspace...`; subStatus.innerText = `Deel ${i + 1} van ${totalChunks}`;
           
           const res = await callAppsScript({ action: "saveChunk", base64: base64Data, index: i, uid: uid });
-          if (!res.success) throw new Error("Upload mislukt: " + res.error);
+          if (!res.success) throw new Error("Deel-upload mislukt: " + res.error);
         }
 
-        statusText.innerText = "AI analyseert de vergadering...";
+        statusText.innerText = "AI analyseert en genereert notulen...";
+        subStatus.innerText = "Er wordt nu ook een e-mail verzonden.";
         progressBar.classList.add('animate-pulse', 'bg-emerald-600');
         
-        const finalRes = await callAppsScript({ action: "finalizeUpload", fileName: fileName, mimeType: mimeType, uid: uid, totalChunks: totalChunks });
+        const finalRes = await callAppsScript({ action: "finalizeUpload", fileName: fileName, mimeType: mimeType, uid: uid });
         if (finalRes.success) {
            finalDocUrl = finalRes.docUrl; pendingTasks = finalRes.tasks || [];
            showSuccess();
         } else throw new Error(finalRes.error);
       } catch (err) {
-        alert("Er is iets misgegaan: " + err.message); location.reload();
+        alert("Fout tijdens verwerking: " + err.message); location.reload();
       }
     }
 
     function showSuccess() {
       progressContainer.classList.add('hidden'); recordBtn.classList.add('hidden'); buttonLabel.classList.add('hidden'); timerDisplay.classList.add('hidden');
-      document.getElementById('panel-title').innerText = "Voltooid";
-      statusText.innerText = "Notulen zijn opgesteld!"; statusText.classList.remove('text-red-600'); subStatus.innerText = "";
+      document.getElementById('panel-title').innerText = "Succesvol Verwerkt";
+      statusText.innerText = "Notulen zijn opgeslagen en gemaild!"; statusText.classList.remove('text-red-600'); subStatus.innerText = "";
       
       docLink.href = finalDocUrl;
       resultBox.classList.remove('hidden');
@@ -195,10 +196,10 @@
     }
 
     syncBtn.addEventListener('click', async () => {
-      syncBtn.innerText = "BEZIG..."; syncBtn.disabled = true;
+      syncBtn.innerText = "BEZIG MET SYNCHRONISEREN..."; syncBtn.disabled = true;
       try {
         await callAppsScript({ action: "syncTasks", tasks: pendingTasks, docUrl: finalDocUrl });
-        syncBtn.innerText = "✓ SUCCESVOL VERZONDEN NAAR TAKEN"; syncBtn.classList.replace('bg-emerald-600', 'bg-slate-400');
+        syncBtn.innerText = "✓ TOEGEVOEGD AAN GOOGLE TASKS"; syncBtn.classList.replace('bg-emerald-600', 'bg-slate-400');
       } catch(e) { alert("Fout bij syncen."); syncBtn.innerText = "PROBEER OPNIEUW"; syncBtn.disabled = false; }
     });
   </script>
