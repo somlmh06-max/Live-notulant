@@ -63,15 +63,12 @@
   </main>
 
   <script>
-    // VERVANG DEZE URL DOOR JE NIEUWE APPS SCRIPT WEB APP URL
-    const API_URL = "https://script.google.com/macros/s/AKfycbzMK2kHWE3XofiAGWz5VnnLweOvNgMNOyiccO2hMJSS5LxlkKMRZ397Nzh6Tws_4V2P9g/exec";
+    // Controleer of dit overeenkomt met de nieuwste implementatie van je Code.gs Web App
+    const API_URL = "https://script.google.com/macros/s/AKfycbwlttoaki8mnftPHk_qGnSBBGIctDVS6zVF_fTVGGpLJ8I68ao8-5BlbJmLYpNq4EtyPA/exec";
     
     let mediaRecorder, audioChunks = [], startTime, timerInterval, isRecording = false;
     let noSleep = new NoSleep();
     let pendingTasks = [], finalDocUrl = "";
-    
-    // Cruciaal: 1.500.000 bytes is exact deelbaar door 3, waardoor Base64 stitching foutloos werkt.
-    const CHUNK_SIZE = 1500000; 
 
     const recordBtn = document.getElementById('record-btn');
     const micIcon = document.getElementById('mic-icon');
@@ -111,7 +108,13 @@
         mediaRecorder = new MediaRecorder(stream, options);
         audioChunks = [];
         mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
-        mediaRecorder.onstop = () => processAndUploadBlob(new Blob(audioChunks, { type: mediaRecorder.mimeType }));
+        
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+          const ext = (mediaRecorder.mimeType || '').includes('mp4') ? 'mp4' : 'webm';
+          const fileName = 'RCS_Audio_' + Date.now() + '.' + ext;
+          verwerkVergaderingZonderLimiet(blob, fileName, blob.type || 'audio/webm');
+        };
 
         mediaRecorder.start(1000); 
         isRecording = true;
@@ -128,7 +131,7 @@
         statusText.innerText = "Systeem luistert mee..."; statusText.classList.add('text-red-600', 'font-bold');
         document.getElementById('panel-title').innerText = "Opname Actief";
       } catch (err) {
-        alert("Microfoonfout. Controleer app-rechten.");
+        alert("Microfoonfout. Controleer of je browser toegang heeft tot de microfoon.");
       }
     }
 
@@ -145,46 +148,97 @@
       buttonLabel.innerText = "Verwerken...";
     }
 
-    async function processAndUploadBlob(blob) {
-      const totalChunks = Math.ceil(blob.size / CHUNK_SIZE);
-      const uid = 'rcs_' + Date.now();
-      const mimeType = blob.type || 'audio/webm';
-      const fileName = 'RCS_Audio_' + uid + '.' + (mimeType.includes('mp4') ? 'mp4' : 'webm');
+    function updateStatusUI(hoofdtekst, subtekst, percentage) {
+      statusText.innerText = hoofdtekst;
+      subStatus.innerText = subtekst;
+      progressBar.style.width = percentage + '%';
+    }
 
+    // --- DE NIEUWE OPLOSSING ZONDER GROOTTE-LIMIET ---
+    async function verwerkVergaderingZonderLimiet(audioBlob, bestandsNaam, mimeType) {
       recordBtn.disabled = true; recordBtn.classList.add('opacity-40');
       progressContainer.classList.remove('hidden');
-      document.getElementById('panel-title').innerText = "Datatransfer";
+      document.getElementById('panel-title').innerText = "Cloud Overdracht";
+      progressBar.classList.add('animate-pulse', 'bg-emerald-600');
+      statusText.classList.remove('text-red-600');
 
       try {
-        for (let i = 0; i < totalChunks; i++) {
-          const chunkBlob = blob.slice(i * CHUNK_SIZE, Math.min((i + 1) * CHUNK_SIZE, blob.size));
-          const base64Data = await new Promise(res => { const r = new FileReader(); r.onloadend = () => res(r.result.split(',')[1]); r.readAsDataURL(chunkBlob); });
-          
-          progressBar.style.width = Math.round(((i + 1) / totalChunks) * 100) + '%';
-          statusText.innerText = `Verzenden naar Google Workspace...`; subStatus.innerText = `Deel ${i + 1} van ${totalChunks}`;
-          
-          const res = await callAppsScript({ action: "saveChunk", base64: base64Data, index: i, uid: uid });
-          if (!res.success) throw new Error("Deel-upload mislukt: " + res.error);
+        updateStatusUI("1/4: Netwerkconfiguratie laden...", "Verbinden met Google Workspace", 10);
+        const settingsRes = await fetch(API_URL, {
+          method: "POST", redirect: "follow", body: JSON.stringify({ action: "getSettings" })
+        });
+        const settings = await settingsRes.json();
+        if (!settings.success) throw new Error("Kon cloud-instellingen niet ophalen.");
+
+        updateStatusUI("2/4: Audio rechtstreeks uploaden...", "Directe link met AI Studio (geen tijdslimiet)", 30);
+        const geminiInit = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${settings.apiKey}`, {
+          method: "POST",
+          headers: {
+            "X-Goog-Upload-Protocol": "resumable",
+            "X-Goog-Upload-Command": "start",
+            "X-Goog-Upload-Header-Content-Length": audioBlob.size,
+            "X-Goog-Upload-Header-Content-Type": mimeType,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ file: { displayName: bestandsNaam } })
+        });
+        
+        const geminiUploadUrl = geminiInit.headers.get("X-Goog-Upload-URL");
+        const geminiUpload = await fetch(geminiUploadUrl, {
+          method: "POST",
+          headers: {
+            "X-Goog-Upload-Command": "upload, finalize",
+            "X-Goog-Upload-Offset": "0",
+            "Content-Type": "application/octet-stream"
+          },
+          body: audioBlob
+        });
+        const geminiFile = await geminiUpload.json();
+
+        updateStatusUI("3/4: Back-up opslaan...", "Kopie bewaren in het archief", 65);
+        try {
+          const driveInit = await fetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable`, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${settings.token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ name: bestandsNaam, parents: [settings.archiefFolderId] })
+          });
+          const driveUploadUrl = driveInit.headers.get("Location");
+          if(driveUploadUrl) {
+            await fetch(driveUploadUrl, { method: "PUT", headers: { "Content-Type": mimeType }, body: audioBlob });
+          }
+        } catch(e) { console.warn("Archief overgeslagen, we gaan door:", e); }
+
+        updateStatusUI("4/4: Vlijmscherpe analyse uitvoeren...", "Notulen en document genereren", 85);
+        const processResponse = await fetch(API_URL, {
+          method: "POST", redirect: "follow",
+          body: JSON.stringify({
+            action: "processDirectUpload",
+            fileUri: geminiFile.file.uri,
+            geminiFileName: geminiFile.file.name,
+            mimeType: mimeType
+          })
+        });
+        
+        const eindResultaat = await processResponse.json();
+        if (eindResultaat.success) {
+          finalDocUrl = eindResultaat.docUrl; 
+          pendingTasks = eindResultaat.tasks || [];
+          updateStatusUI("Voltooid", "Gereed", 100);
+          showSuccess();
+        } else {
+          throw new Error(eindResultaat.error);
         }
 
-        statusText.innerText = "AI analyseert en genereert notulen...";
-        subStatus.innerText = "Er wordt nu ook een e-mail verzonden.";
-        progressBar.classList.add('animate-pulse', 'bg-emerald-600');
-        
-        const finalRes = await callAppsScript({ action: "finalizeUpload", fileName: fileName, mimeType: mimeType, uid: uid });
-        if (finalRes.success) {
-           finalDocUrl = finalRes.docUrl; pendingTasks = finalRes.tasks || [];
-           showSuccess();
-        } else throw new Error(finalRes.error);
-      } catch (err) {
-        alert("Fout tijdens verwerking: " + err.message); location.reload();
+      } catch (fout) {
+        alert("⚠️ Fout opgetreden: " + fout.message); 
+        location.reload();
       }
     }
 
     function showSuccess() {
       progressContainer.classList.add('hidden'); recordBtn.classList.add('hidden'); buttonLabel.classList.add('hidden'); timerDisplay.classList.add('hidden');
       document.getElementById('panel-title').innerText = "Succesvol Verwerkt";
-      statusText.innerText = "Notulen zijn opgeslagen en gemaild!"; statusText.classList.remove('text-red-600'); subStatus.innerText = "";
+      statusText.innerText = "Notulen zijn opgeslagen en gemaild!"; subStatus.innerText = "";
       
       docLink.href = finalDocUrl;
       resultBox.classList.remove('hidden');
