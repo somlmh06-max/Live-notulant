@@ -9,6 +9,8 @@
   <style>
     @keyframes pulse-red { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; box-shadow: 0 0 0 12px rgba(239, 68, 68, 0.3); } }
     .recording-active { animation: pulse-red 2s infinite; }
+    .paused-pulse { animation: pulse-orange 3s infinite; }
+    @keyframes pulse-orange { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; box-shadow: 0 0 0 8px rgba(245, 158, 11, 0.2); } }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between font-sans">
@@ -40,11 +42,21 @@
         </div>
 
         <div class="flex flex-col items-center justify-center py-4">
-          <button id="record-btn" class="w-28 h-28 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-lg transition-all focus:outline-none">
-            <svg id="mic-icon" class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
-            <svg id="stop-icon" class="w-12 h-12 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H10a1 1 0 01-1-1v-4z"></path></svg>
-          </button>
-          <p id="button-label" class="text-xs font-bold uppercase tracking-widest text-red-600 mt-4">Start Opname</p>
+          <div class="flex items-center justify-center gap-6">
+            
+            <button id="pause-btn" class="w-16 h-16 bg-amber-500 hover:bg-amber-600 text-white rounded-full items-center justify-center shadow-lg transition-all focus:outline-none hidden">
+              <svg id="pause-icon" class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <svg id="play-icon" class="w-8 h-8 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </button>
+
+            <button id="record-btn" class="w-28 h-28 bg-red-600 hover:bg-red-700 text-white rounded-full flex flex-col items-center justify-center shadow-lg transition-all focus:outline-none">
+              <svg id="mic-icon" class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+              <svg id="stop-icon" class="w-12 h-12 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H10a1 1 0 01-1-1v-4z"></path></svg>
+            </button>
+
+          </div>
+          
+          <p id="button-label" class="text-xs font-bold uppercase tracking-widest text-red-600 mt-4 text-center h-4">Start Opname</p>
         </div>
 
         <div id="result-box" class="hidden border-t border-slate-200 pt-6 space-y-4">
@@ -63,16 +75,21 @@
   </main>
 
   <script>
-    // Controleer of dit overeenkomt met de nieuwste implementatie van je Code.gs Web App
-    const API_URL = "https://script.google.com/macros/s/AKfycbwlttoaki8mnftPHk_qGnSBBGIctDVS6zVF_fTVGGpLJ8I68ao8-5BlbJmLYpNq4EtyPA/exec";
+    // Zorg dat deze API URL klopt met je zojuist opgeslagen Apps Script Web App!
+    const API_URL = "https://script.google.com/macros/s/AKfycbzMK2kHWE3XofiAGWz5VnnLweOvNgMNOyiccO2hMJSS5LxlkKMRZ397Nzh6Tws_4V2P9g/exec";
     
-    let mediaRecorder, audioChunks = [], startTime, timerInterval, isRecording = false;
+    let mediaRecorder, audioChunks = [];
+    let isRecording = false, isPaused = false;
+    let timerSeconds = 0, timerInterval;
     let noSleep = new NoSleep();
     let pendingTasks = [], finalDocUrl = "";
 
     const recordBtn = document.getElementById('record-btn');
+    const pauseBtn = document.getElementById('pause-btn');
     const micIcon = document.getElementById('mic-icon');
     const stopIcon = document.getElementById('stop-icon');
+    const pauseIcon = document.getElementById('pause-icon');
+    const playIcon = document.getElementById('play-icon');
     const buttonLabel = document.getElementById('button-label');
     const timerDisplay = document.getElementById('timer');
     const statusText = document.getElementById('status-text');
@@ -87,18 +104,23 @@
 
     async function callAppsScript(payload) {
       const res = await fetch(API_URL, {
-        method: "POST",
-        redirect: "follow",
+        method: "POST", redirect: "follow",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(payload)
       });
       return await res.json();
     }
 
+    // --- KNOP ACTIONS ---
     recordBtn.addEventListener('click', async () => {
       if (!isRecording) await startRecording(); else stopRecording();
     });
 
+    pauseBtn.addEventListener('click', () => {
+      if (isPaused) resumeRecording(); else pauseRecording();
+    });
+
+    // --- OPNAME LOGICA ---
     async function startRecording() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -118,16 +140,23 @@
 
         mediaRecorder.start(1000); 
         isRecording = true;
-        startTime = Date.now();
+        isPaused = false;
+        
+        // Simpele en robuuste timer
+        timerSeconds = 0;
         timerInterval = setInterval(() => {
-          const s = Math.floor((Date.now() - startTime) / 1000);
-          timerDisplay.innerText = [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map(v => String(v).padStart(2, '0')).join(':');
+          if(!isPaused) {
+            timerSeconds++;
+            timerDisplay.innerText = [Math.floor(timerSeconds / 3600), Math.floor((timerSeconds % 3600) / 60), timerSeconds % 60].map(v => String(v).padStart(2, '0')).join(':');
+          }
         }, 1000);
         
+        // UI Updates voor Start
         recordBtn.classList.add('bg-red-700', 'recording-active');
+        pauseBtn.classList.remove('hidden'); pauseBtn.classList.add('flex'); // Toon pauzeknop
         micIcon.classList.add('hidden'); stopIcon.classList.remove('hidden');
         timerDisplay.classList.remove('hidden'); resultBox.classList.add('hidden');
-        buttonLabel.innerText = "Stop Opname";
+        buttonLabel.innerText = "Stop";
         statusText.innerText = "Systeem luistert mee..."; statusText.classList.add('text-red-600', 'font-bold');
         document.getElementById('panel-title').innerText = "Opname Actief";
       } catch (err) {
@@ -135,17 +164,54 @@
       }
     }
 
+    function pauseRecording() {
+      if (!mediaRecorder) return;
+      mediaRecorder.pause();
+      isPaused = true;
+      
+      // UI Updates voor Pauze
+      recordBtn.classList.remove('recording-active');
+      pauseBtn.classList.add('paused-pulse');
+      pauseIcon.classList.add('hidden'); playIcon.classList.remove('hidden');
+      timerDisplay.classList.add('text-amber-500'); timerDisplay.classList.remove('text-slate-400');
+      statusText.innerText = "Opname is gepauzeerd.";
+      statusText.classList.replace('text-red-600', 'text-amber-500');
+      buttonLabel.innerText = "Pauze";
+      buttonLabel.classList.replace('text-red-600', 'text-amber-500');
+    }
+
+    function resumeRecording() {
+      if (!mediaRecorder) return;
+      mediaRecorder.resume();
+      isPaused = false;
+      
+      // UI Updates voor Hervatten
+      recordBtn.classList.add('recording-active');
+      pauseBtn.classList.remove('paused-pulse');
+      playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden');
+      timerDisplay.classList.add('text-slate-400'); timerDisplay.classList.remove('text-amber-500');
+      statusText.innerText = "Systeem luistert weer mee...";
+      statusText.classList.replace('text-amber-500', 'text-red-600');
+      buttonLabel.innerText = "Stop";
+      buttonLabel.classList.replace('text-amber-500', 'text-red-600');
+    }
+
     function stopRecording() {
       if (!mediaRecorder) return;
+      if (mediaRecorder.state === "paused") mediaRecorder.resume(); // Hervat kort om veilig af te sluiten
       mediaRecorder.stop();
       mediaRecorder.stream.getTracks().forEach(t => t.stop()); 
       noSleep.disable();
       clearInterval(timerInterval);
       isRecording = false;
+      isPaused = false;
       
+      // UI Updates voor Stop
       recordBtn.classList.remove('bg-red-700', 'recording-active');
+      pauseBtn.classList.add('hidden'); pauseBtn.classList.remove('flex', 'paused-pulse');
       micIcon.classList.remove('hidden'); stopIcon.classList.add('hidden');
       buttonLabel.innerText = "Verwerken...";
+      buttonLabel.classList.replace('text-amber-500', 'text-red-600');
     }
 
     function updateStatusUI(hoofdtekst, subtekst, percentage) {
@@ -154,13 +220,13 @@
       progressBar.style.width = percentage + '%';
     }
 
-    // --- DE NIEUWE OPLOSSING ZONDER GROOTTE-LIMIET ---
+    // --- DIRECTE CLOUD UPLOAD ---
     async function verwerkVergaderingZonderLimiet(audioBlob, bestandsNaam, mimeType) {
       recordBtn.disabled = true; recordBtn.classList.add('opacity-40');
       progressContainer.classList.remove('hidden');
       document.getElementById('panel-title').innerText = "Cloud Overdracht";
       progressBar.classList.add('animate-pulse', 'bg-emerald-600');
-      statusText.classList.remove('text-red-600');
+      statusText.classList.remove('text-red-600', 'text-amber-500');
 
       try {
         updateStatusUI("1/4: Netwerkconfiguratie laden...", "Verbinden met Google Workspace", 10);
@@ -170,7 +236,7 @@
         const settings = await settingsRes.json();
         if (!settings.success) throw new Error("Kon cloud-instellingen niet ophalen.");
 
-        updateStatusUI("2/4: Audio rechtstreeks uploaden...", "Directe link met AI Studio (geen tijdslimiet)", 30);
+        updateStatusUI("2/4: Audio rechtstreeks uploaden...", "Directe link met AI Studio", 30);
         const geminiInit = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${settings.apiKey}`, {
           method: "POST",
           headers: {
@@ -206,9 +272,9 @@
           if(driveUploadUrl) {
             await fetch(driveUploadUrl, { method: "PUT", headers: { "Content-Type": mimeType }, body: audioBlob });
           }
-        } catch(e) { console.warn("Archief overgeslagen, we gaan door:", e); }
+        } catch(e) { console.warn("Archief overgeslagen:", e); }
 
-        updateStatusUI("4/4: Vlijmscherpe analyse uitvoeren...", "Notulen en document genereren", 85);
+        updateStatusUI("4/4: Vlijmscherpe analyse uitvoeren...", "Audio verwerken, even geduld...", 85);
         const processResponse = await fetch(API_URL, {
           method: "POST", redirect: "follow",
           body: JSON.stringify({
@@ -236,7 +302,7 @@
     }
 
     function showSuccess() {
-      progressContainer.classList.add('hidden'); recordBtn.classList.add('hidden'); buttonLabel.classList.add('hidden'); timerDisplay.classList.add('hidden');
+      progressContainer.classList.add('hidden'); recordBtn.classList.add('hidden'); pauseBtn.classList.add('hidden'); buttonLabel.classList.add('hidden'); timerDisplay.classList.add('hidden');
       document.getElementById('panel-title').innerText = "Succesvol Verwerkt";
       statusText.innerText = "Notulen zijn opgeslagen en gemaild!"; subStatus.innerText = "";
       
